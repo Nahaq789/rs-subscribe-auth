@@ -32,3 +32,5 @@ lambda.zip
 
 # SQLx specific (if you're using SQLx)
 .sqlx/
+
+rs-subscribe-auth.zip
