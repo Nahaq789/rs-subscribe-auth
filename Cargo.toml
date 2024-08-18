@@ -18,7 +18,10 @@ pbkdf2 = { version = "0.12", features = ["simple"] }
 jsonwebtoken = "9"
 lambda_runtime = "0.9.0"
 aws_lambda_events = "0.13.1"
+lambda_http = "0.8.0"
 ring = "=0.16.20"
+http = "0.2"
+anyhow = "1.0.78"
 
 [target.x86_64-unknown-linux-gnu]
 linker = "x86_64-unknown-linux-gnu-gcc"
