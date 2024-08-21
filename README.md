@@ -1,6 +1,6 @@
 # Rust プロジェクトのデバッグ設定
 
-このREADMEでは、Visual Studio Code (VSCode) を使用してこのRustプロジェクトをデバッグするための設定方法を説明します。
+この README では、Visual Studio Code (VSCode) を使用してこの Rust プロジェクトをデバッグするための設定方法を説明します。
 
 ## 前提条件
 
@@ -16,24 +16,22 @@
 
 ```json
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "type": "lldb",
-            "request": "launch",
-            "name": "Debug executable",
-            "cargo": {
-                "args": [
-                    "build",
-                ],
-                "filter": {
-                    "kind": "bin"
-                }
-            },
-            "args": [],
-            "cwd": "${workspaceFolder}"
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "lldb",
+      "request": "launch",
+      "name": "Debug executable",
+      "cargo": {
+        "args": ["build"],
+        "filter": {
+          "kind": "bin"
         }
-    ]
+      },
+      "args": [],
+      "cwd": "${workspaceFolder}"
+    }
+  ]
 }
 ```
 
@@ -51,9 +49,9 @@
 ## デバッグの開始方法
 
 1. VSCode でプロジェクトを開きます。
-2. デバッグしたいRustファイルを開きます。
+2. デバッグしたい Rust ファイルを開きます。
 3. ブレークポイントを設定します。
-4. F5キーを押すか、サイドバーのデバッグアイコンをクリックしてデバッグを開始します。
+4. F5 キーを押すか、サイドバーのデバッグアイコンをクリックしてデバッグを開始します。
 5. "Debug executable" 設定を選択します。
 
 これで、プログラムがブレークポイントで停止し、変数の確認やステップ実行などのデバッグ作業が行えるようになります。
@@ -63,3 +61,8 @@
 - この設定は基本的なものです。プロジェクトの特性に応じて `launch.json` を調整する必要があるかもしれません。
 - 環境変数や追加の引数が必要な場合は、適宜 `launch.json` に追加してください。
 - チーム開発の場合、各開発者の環境に合わせて `launch.json` を調整する必要があるかもしれません。
+
+## ECR にデプロイ
+
+- Docker Image を Build
+  - `docker build --platform=linux/amd64 -t rs-subscribe-auth .`

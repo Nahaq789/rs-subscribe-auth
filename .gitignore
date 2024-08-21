@@ -34,3 +34,4 @@ lambda.zip
 .sqlx/
 
 rs-subscribe-auth.zip
+build.sh
