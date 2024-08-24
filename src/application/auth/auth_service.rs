@@ -1,7 +1,10 @@
+use std::sync::Arc;
+
 use axum::async_trait;
 
 use crate::{
-    adapter::aws::config::AwsConfig, domain::entity::auth_user::AuthUser,
+    adapter::aws::{client::cognito_client::CognitoClient, provider::AwsProvider},
+    domain::entity::auth_user::AuthUser,
     exception::auth_error::AuthError,
 };
 
@@ -10,19 +13,22 @@ pub trait AuthService: Send + Sync {
     async fn auth_by_cognito(&self, auth: AuthUser) -> Result<(), AuthError>;
 }
 
-pub struct AuthServiceImpl {}
+pub struct AuthServiceImpl {
+    cognito: Arc<dyn AwsProvider<CognitoClient>>,
+}
 
 impl AuthServiceImpl {
-    pub fn new() -> Self {
-        AuthServiceImpl {}
+    pub fn new(cognito: Arc<dyn AwsProvider<CognitoClient>>) -> Self {
+        AuthServiceImpl { cognito }
     }
 }
 
 #[async_trait]
 impl AuthService for AuthServiceImpl {
     async fn auth_by_cognito(&self, auth: AuthUser) -> Result<(), AuthError> {
-        let unko = AwsConfig::get_env_value().unwrap();
-        println!("{}", unko.user_pool_id);
+        let test = self.cognito.get_aws_config().await.unwrap();
+        println!("{}", test.client_id);
+        println!("{}", test.region);
 
         Ok(())
     }
