@@ -62,7 +62,50 @@
 - 環境変数や追加の引数が必要な場合は、適宜 `launch.json` に追加してください。
 - チーム開発の場合、各開発者の環境に合わせて `launch.json` を調整する必要があるかもしれません。
 
-## ECR にデプロイ
+<br/>
+<br/>
+<br/>
 
-- Docker Image を Build
-  - `docker build --platform=linux/amd64 -t rs-subscribe-auth .`
+# ECR にデプロイ
+このプロジェクトのDockerイメージをAmazon Elastic Container Registry (ECR)にプッシュするには、以下の手順に従ってください。
+
+### 前提条件
+
+- AWSアカウントとECRリポジトリが設定されていること
+- AWS CLIがインストールされ、適切に設定されていること
+- Dockerがインストールされていること
+
+### 手順
+
+1. AWSアカウントにログインします：
+
+    ```sh
+    aws ecr get-login-password --region <your-region> | docker login --username AWS --password-stdin <your-account-id>.dkr.ecr.<your-region>.amazonaws.com
+    ```
+
+2. Dockerイメージをビルドします（必要な場合）：
+
+    ```sh
+    docker build --platform=linux/amd64 -t rs-subscribe-auth .
+    ```
+
+3. イメージにECRリポジトリのタグを付けます：
+
+    ```sh
+    docker tag <your-project-name>:latest <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/<your-repository-name>:latest
+    ```
+
+4. イメージをECRにプッシュします：
+
+    ```sh
+    docker push <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/<your-repository-name>:latest
+    ```
+
+注意: 上記のコマンドで `<your-account-id>`、`<your-region>`、`<your-repository-name>` を適切な値に置き換えてください。
+
+### セキュリティ注意事項
+
+- AWSアカウントID、リージョン、リポジトリ名などの具体的な情報は公開リポジトリのREADMEに記載しないでください。
+- AWSの認証情報を決してバージョン管理システムにコミットしないでください。
+
+詳細については、[Amazon ECRドキュメント](https://docs.aws.amazon.com/AmazonECR/latest/userguide/what-is-ecr.html)を参照してください。
