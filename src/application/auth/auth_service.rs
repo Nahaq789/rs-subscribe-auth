@@ -26,9 +26,17 @@ impl AuthServiceImpl {
 #[async_trait]
 impl AuthService for AuthServiceImpl {
     async fn auth_by_cognito(&self, auth: AuthUser) -> Result<(), AuthError> {
-        let test = self.cognito.get_aws_config().await.unwrap();
-        println!("{}", test.client_id);
-        println!("{}", test.region);
+        let cognito = self.cognito.get_aws_config().await.unwrap();
+        cognito
+            .client
+            .initiate_auth()
+            .auth_flow(aws_sdk_cognitoidentityprovider::types::AuthFlowType::UserPasswordAuth)
+            .client_id(cognito.client_id)
+            .auth_parameters("USERNAME", auth.email)
+            .auth_parameters("PASSWORD", auth.password)
+            .send()
+            .await
+            .map_err(|_| AuthError::AuthenticationFailed)?;
 
         Ok(())
     }

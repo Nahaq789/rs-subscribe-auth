@@ -2,6 +2,8 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum AuthError {
-    #[error("Invalid email or password: {0}")]
-    InvalidCredentials(String),
+    #[error("Authentication failed")]
+    AuthenticationFailed,
+    #[error("Internal Server Error")]
+    InternalServerError,
 }
