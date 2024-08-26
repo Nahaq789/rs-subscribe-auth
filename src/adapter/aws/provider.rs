@@ -1,4 +1,3 @@
-use aws_sdk_cognitoidentityprovider::Client;
 use axum::async_trait;
 use thiserror::Error;
 
