@@ -1,16 +1,17 @@
 use std::sync::Arc;
 
 use axum::async_trait;
+use Ok;
 
 use crate::{
     adapter::aws::{client::cognito_client::CognitoClient, provider::AwsProvider},
-    domain::entity::auth_user::AuthUser,
+    domain::entity::{auth_user::AuthUser, token::Token},
     exception::auth_error::AuthError,
 };
 
 #[async_trait]
 pub trait AuthService: Send + Sync {
-    async fn auth_by_cognito(&self, auth: AuthUser) -> Result<(), AuthError>;
+    async fn authenticate_user(&self, auth: AuthUser) -> Result<Token, AuthError>;
 }
 
 pub struct AuthServiceImpl {
@@ -25,19 +26,37 @@ impl AuthServiceImpl {
 
 #[async_trait]
 impl AuthService for AuthServiceImpl {
-    async fn auth_by_cognito(&self, auth: AuthUser) -> Result<(), AuthError> {
-        let cognito = self.cognito.get_aws_config().await.unwrap();
-        cognito
+    async fn authenticate_user(&self, auth: AuthUser) -> Result<Token, AuthError> {
+        let cognito = self
+            .cognito
+            .get_aws_config()
+            .await
+            .map_err(|_| AuthError::ConfigurationError)?;
+        let authentication = cognito
             .client
             .initiate_auth()
             .auth_flow(aws_sdk_cognitoidentityprovider::types::AuthFlowType::UserPasswordAuth)
-            .client_id(cognito.client_id)
-            .auth_parameters("USERNAME", auth.email)
-            .auth_parameters("PASSWORD", auth.password)
+            .client_id(&cognito.client_id)
+            .auth_parameters("USERNAME", &auth.email)
+            .auth_parameters("PASSWORD", &auth.password)
             .send()
             .await
             .map_err(|_| AuthError::AuthenticationFailed)?;
 
-        Ok(())
+        let authenticate_result = authentication
+            .authentication_result()
+            .ok_or(AuthError::AuthenticationFailed)?;
+        let jwt = authenticate_result
+            .access_token()
+            .ok_or(AuthError::TokenMissing)?
+            .to_string();
+        let refresh = authenticate_result
+            .refresh_token()
+            .ok_or(AuthError::TokenMissing)?
+            .to_string();
+
+        let token = Token::new(jwt, refresh);
+
+        Ok(token)
     }
 }
