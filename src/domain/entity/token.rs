@@ -1,4 +1,10 @@
 pub struct Token {
-    jwt: String,
-    refresh: String,
+    pub jwt: String,
+    pub refresh: String,
+}
+
+impl Token {
+    pub fn new(jwt: String, refresh: String) -> Self {
+        Token { jwt, refresh }
+    }
 }
