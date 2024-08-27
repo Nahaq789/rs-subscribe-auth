@@ -6,4 +6,8 @@ pub enum AuthError {
     AuthenticationFailed,
     #[error("Internal Server Error")]
     InternalServerError,
+    #[error("Configuration Error")]
+    ConfigurationError,
+    #[error("Token Missing")]
+    TokenMissing,
 }
