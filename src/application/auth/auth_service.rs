@@ -41,18 +41,35 @@ impl AuthService for AuthServiceImpl {
             .auth_parameters("PASSWORD", &auth.password)
             .send()
             .await
-            .map_err(|_| AuthError::AuthenticationFailed)?;
+            .map_err(|e| {
+                log::error!("Authentication failed: {:?}", e);
+                AuthError::AuthenticationFailed
+            })?;
 
-        let authenticate_result = authentication
-            .authentication_result()
-            .ok_or(AuthError::AuthenticationFailed)?;
+        if let Some(challenge_name) = authentication.challenge_name() {
+            log::warn!("Authentication challenge received: {:?}", challenge_name);
+            return Err(AuthError::AuthenticationFailed);
+        }
+
+        let authenticate_result = authentication.authentication_result().ok_or_else(|| {
+            log::error!("No authentication result in response");
+            AuthError::AuthenticationFailed
+        })?;
+
         let jwt = authenticate_result
             .access_token()
-            .ok_or(AuthError::TokenMissing)?
+            .ok_or_else(|| {
+                log::error!("Access token missing from authentication result");
+                AuthError::TokenMissing
+            })?
             .to_string();
+
         let refresh = authenticate_result
             .refresh_token()
-            .ok_or(AuthError::TokenMissing)?
+            .ok_or_else(|| {
+                log::error!("Refresh token missing from authentication result");
+                AuthError::TokenMissing
+            })?
             .to_string();
 
         let token = Token::new(jwt, refresh);

@@ -3,7 +3,7 @@ FROM rust:1.80-slim-bullseye as base
 FROM base as builder
 WORKDIR /app
 COPY . /app
-RUN cargo build --release
+RUN cargo build --release -j 6
 RUN strip /app/target/release/rs-subscribe-auth -o /rs-subscribe-auth
 
 FROM gcr.io/distroless/cc
