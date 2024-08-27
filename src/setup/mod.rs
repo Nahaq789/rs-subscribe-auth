@@ -4,8 +4,10 @@ use axum::Router;
 use std::sync::Arc;
 
 use crate::adapter::aws::client::cognito_client::CognitoClient;
-use crate::application::auth::auth_service::{AuthService, AuthServiceImpl};
-use crate::controller::auth_controller::signin;
+use crate::{
+    application::auth::auth_service::{AuthService, AuthServiceImpl},
+    presentation::controller::auth_controller::signin,
+};
 
 pub async fn create_app() {
     let cognito = Arc::new(CognitoClient::from_env().await.unwrap());
