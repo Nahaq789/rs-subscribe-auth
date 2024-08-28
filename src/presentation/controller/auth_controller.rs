@@ -13,6 +13,8 @@ use crate::{
     presentation::dto::{auth_request::AuthRequest, auth_result::AuthResult},
 };
 
+/// Implements the `IntoResponse` trait for `AuthError`.
+/// This allows `AuthError` to be converted into an HTTP response.
 impl IntoResponse for AuthError {
     fn into_response(self) -> Response {
         let status = match self {
@@ -24,6 +26,16 @@ impl IntoResponse for AuthError {
     }
 }
 
+/// Handles the sign-in (login) process.
+///
+/// # Arguments
+///
+/// * `module` - An `Arc` wrapped `AuthService` implementation.
+/// * `payload` - The JSON payload containing the user's credentials.
+///
+/// # Returns
+///
+/// Returns a `Result` containing the authentication result or an `AuthError`.
 pub async fn signin(
     Extension(module): Extension<Arc<dyn AuthService>>,
     Json(payload): Json<AuthRequest>,
@@ -36,6 +48,16 @@ pub async fn signin(
     Ok((StatusCode::OK, Json(result)))
 }
 
+/// Handles the sign-up process and then signs in the new user.
+///
+/// # Arguments
+///
+/// * `module` - An `Arc` wrapped `AuthService` implementation.
+/// * `payload` - The JSON payload containing the user's registration information.
+///
+/// # Returns
+///
+/// Returns a `Result` containing the authentication result for the new user or an `AuthError`.
 pub async fn signup(
     Extension(module): Extension<Arc<dyn AuthService>>,
     Json(payload): Json<AuthRequest>,
