@@ -102,6 +102,7 @@ impl AuthService for AuthServiceImpl {
             .client_id(&cognito.client_id)
             .username(&auth.email)
             .password(&auth.password)
+            .secret_hash("hash")
             .user_attributes(email_attribute)
             .send()
             .await
