@@ -1,6 +1,10 @@
 use std::sync::Arc;
 
-use aws_sdk_cognitoidentityprovider::{operation::sign_up::SignUpOutput, types::AttributeType};
+use aws_sdk_cognitoidentityprovider::{
+    error::SdkError,
+    operation::sign_up::{SignUpError, SignUpOutput},
+    types::AttributeType,
+};
 use axum::async_trait;
 use hmac::{Hmac, Mac};
 use sha2::Sha256;
@@ -15,7 +19,7 @@ use crate::{
 #[async_trait]
 pub trait AuthService: Send + Sync {
     async fn authenticate_user(&self, auth: &AuthUser) -> Result<Token, AuthError>;
-    async fn singnup_user(&self, auth: &AuthUser) -> Result<SignUpOutput, AuthError>;
+    async fn signup_user(&self, auth: &AuthUser) -> Result<SignUpOutput, AuthError>;
     async fn signup_then_signin(&self, auth: &AuthUser) -> Result<Token, AuthError>;
 }
 
@@ -48,6 +52,13 @@ impl AuthService for AuthServiceImpl {
             .get_aws_config()
             .await
             .map_err(|_| AuthError::ConfigurationError)?;
+
+        let secret_hash = AuthServiceImpl::client_secret_hash(
+            &auth.email,
+            &cognito.client_id,
+            &cognito.client_secret,
+        );
+
         let authentication = cognito
             .client
             .initiate_auth()
@@ -55,17 +66,13 @@ impl AuthService for AuthServiceImpl {
             .client_id(&cognito.client_id)
             .auth_parameters("USERNAME", &auth.email)
             .auth_parameters("PASSWORD", &auth.password)
+            .auth_parameters("SECRET_HASH", &secret_hash)
             .send()
             .await
             .map_err(|e| {
                 log::error!("Authentication failed: {:?}", e);
                 AuthError::AuthenticationFailed
             })?;
-
-        if let Some(challenge_name) = authentication.challenge_name() {
-            log::warn!("Authentication challenge received: {:?}", challenge_name);
-            return Err(AuthError::AuthenticationFailed);
-        }
 
         let authenticate_result = authentication.authentication_result().ok_or_else(|| {
             log::error!("No authentication result in response");
@@ -93,7 +100,7 @@ impl AuthService for AuthServiceImpl {
         Ok(token)
     }
 
-    async fn singnup_user(&self, auth: &AuthUser) -> Result<SignUpOutput, AuthError> {
+    async fn signup_user(&self, auth: &AuthUser) -> Result<SignUpOutput, AuthError> {
         let cognito = self
             .cognito
             .get_aws_config()
@@ -106,7 +113,7 @@ impl AuthService for AuthServiceImpl {
             .build()
             .map_err(|e| {
                 log::error!("Failed to build email attribute: {:?}", e);
-                AuthError::InternalServerError
+                AuthError::InternalServerError(format!("Failed to build email attribute: {:?}", e))
             })?;
 
         let secret_hash = AuthServiceImpl::client_secret_hash(
@@ -127,21 +134,29 @@ impl AuthService for AuthServiceImpl {
             .await
             .map_err(|e| {
                 log::error!("Signup error: {:?}", e);
-                match e.to_string().as_str() {
-                    s if s.contains("UsernameExistsException") => AuthError::UserAlreadyExists,
-                    s if s.contains("InvalidPasswordException") => AuthError::InvalidPassword,
-                    _ => AuthError::AuthenticationFailed,
+                match e {
+                    SdkError::ServiceError(service_error) => match service_error.err() {
+                        SignUpError::UsernameExistsException(_) => AuthError::UserAlreadyExists,
+                        SignUpError::InvalidPasswordException(_) => AuthError::InvalidPassword,
+                        _ => AuthError::InternalServerError(format!(
+                            "Unhandled Cognito error: {:?}",
+                            service_error
+                        )),
+                    },
+                    _ => AuthError::InternalServerError(format!("AWS SDK error: {:?}", e)),
                 }
             })
     }
 
     async fn signup_then_signin(&self, auth: &AuthUser) -> Result<Token, AuthError> {
-        let signup_result = self.singnup_user(&auth).await?;
+        let signup_result = self.signup_user(&auth).await?;
         if signup_result.user_confirmed() {
             Ok(self.authenticate_user(&auth).await?)
         } else {
             log::error!("User signup successful, but confirmation required");
-            Err(AuthError::InternalServerError)
+            Err(AuthError::InternalServerError(
+                "User signup successful, but confirmation required".into(),
+            ))
         }
     }
 }
