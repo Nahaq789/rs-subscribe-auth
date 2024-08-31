@@ -134,3 +134,42 @@ impl AwsProvider<CognitoClient> for CognitoClient {
         CognitoClient::from_env().await
     }
 }
+
+#[cfg(test)]
+mod cognito_client_tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn create_cognito_client_test() {
+        let user_pool_id = "hoge_pool_id";
+        let client_id = "hoge_client_id";
+        let region = "hoge_region";
+        let client_secret = "hoge_secret";
+        let region_provider = RegionProviderChain::first_try(Region::new(region));
+        let shared_config = aws_config::defaults(BehaviorVersion::latest())
+            .region(region_provider)
+            .load()
+            .await;
+        let client: Client = Client::new(&shared_config);
+
+        let cognito_client = CognitoClient::new(
+            user_pool_id.into(),
+            client_id.into(),
+            region.into(),
+            client_secret.into(),
+            client,
+        );
+
+        assert_eq!(user_pool_id, cognito_client.user_pool_id);
+        assert_eq!(client_id, cognito_client.client_id);
+        assert_eq!(region, cognito_client.region);
+        assert_eq!(client_secret, cognito_client.client_secret);
+    }
+
+    #[tokio::test]
+    async fn from_env_test() {
+        let result: Option<CognitoClient> = Some(CognitoClient::from_env().await.unwrap());
+
+        assert!(result.is_some())
+    }
+}
