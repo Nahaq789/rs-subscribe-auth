@@ -2,6 +2,8 @@ use std::sync::Arc;
 
 use aws_sdk_cognitoidentityprovider::{operation::sign_up::SignUpOutput, types::AttributeType};
 use axum::async_trait;
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
 use Ok;
 
 use crate::{
@@ -24,6 +26,17 @@ pub struct AuthServiceImpl {
 impl AuthServiceImpl {
     pub fn new(cognito: Arc<dyn AwsProvider<CognitoClient>>) -> Self {
         AuthServiceImpl { cognito }
+    }
+
+    fn client_secret_hash(user_email: &str, client_id: &str, client_secret: &str) -> String {
+        type HmacSha256 = Hmac<Sha256>;
+        let mut mac = HmacSha256::new_from_slice(client_secret.as_bytes())
+            .expect("HMAC can take key of any size");
+
+        mac.update(user_email.as_bytes());
+        mac.update(client_id.as_bytes());
+        let result = mac.finalize();
+        base64::encode(result.into_bytes())
     }
 }
 
@@ -96,13 +109,19 @@ impl AuthService for AuthServiceImpl {
                 AuthError::InternalServerError
             })?;
 
+        let secret_hash = AuthServiceImpl::client_secret_hash(
+            &auth.email,
+            &cognito.client_id,
+            &cognito.client_secret,
+        );
+
         cognito
             .client
             .sign_up()
             .client_id(&cognito.client_id)
             .username(&auth.email)
             .password(&auth.password)
-            .secret_hash("hash")
+            .secret_hash(secret_hash)
             .user_attributes(email_attribute)
             .send()
             .await

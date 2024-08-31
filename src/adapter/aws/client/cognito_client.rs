@@ -19,6 +19,8 @@ pub struct CognitoClient {
     pub client_id: String,
     /// The AWS region
     pub region: String,
+    /// The AWS COginito Secret Hash
+    pub client_secret: String,
     /// The AWS Cognito Identity Provider client
     pub client: Client,
 }
@@ -36,11 +38,18 @@ impl CognitoClient {
     /// # Returns
     ///
     /// A new instance of `CognitoClient`
-    pub fn new(user_pool_id: String, client_id: String, region: String, client: Client) -> Self {
+    pub fn new(
+        user_pool_id: String,
+        client_id: String,
+        region: String,
+        secret_hash: String,
+        client: Client,
+    ) -> Self {
         CognitoClient {
             user_pool_id,
             client_id,
             region,
+            client_secret: secret_hash,
             client,
         }
     }
@@ -85,6 +94,9 @@ impl CognitoClient {
         let region = env::var("AWS_REGION")
             .context("AWS_REGION not found")
             .map_err(|e| AwsConfigError::EnvVarNotFound(e.to_string()))?;
+        let client_secret = env::var("AWS_CLIENT_SECRET")
+            .context("AWS_SECRET_HASH not found")
+            .map_err(|e| AwsConfigError::EnvVarNotFound(e.to_string()))?;
 
         let region_provider = RegionProviderChain::first_try(Region::new(region.clone()));
         let shared_config = aws_config::defaults(BehaviorVersion::latest())
@@ -93,7 +105,13 @@ impl CognitoClient {
             .await;
         let client = Client::new(&shared_config);
 
-        Ok(Self::new(user_pool_id, client_id, region, client))
+        Ok(Self::new(
+            user_pool_id,
+            client_id,
+            region,
+            client_secret,
+            client,
+        ))
     }
 }
 
