@@ -160,10 +160,13 @@ mod cognito_client_tests {
             client,
         );
 
+        let option_client: Option<Client> = Some(cognito_client.client);
+
         assert_eq!(user_pool_id, cognito_client.user_pool_id);
         assert_eq!(client_id, cognito_client.client_id);
         assert_eq!(region, cognito_client.region);
         assert_eq!(client_secret, cognito_client.client_secret);
+        assert!(option_client.is_some());
     }
 
     #[tokio::test]
