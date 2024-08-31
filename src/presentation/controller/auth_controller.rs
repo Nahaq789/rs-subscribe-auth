@@ -62,7 +62,7 @@ pub async fn signup(
     Extension(module): Extension<Arc<dyn AuthService>>,
     Json(payload): Json<AuthRequest>,
 ) -> Result<impl IntoResponse, AuthError> {
-    let user = AuthUser::new("test".to_string(), payload.email, payload.password);
+    let user = AuthUser::new("".to_string(), payload.email, payload.password);
     module.signup_user(&user).await?;
 
     // let result = AuthResult::new(&token.jwt, &token.refresh, 200);
