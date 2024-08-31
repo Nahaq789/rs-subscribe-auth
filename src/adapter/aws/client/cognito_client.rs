@@ -95,7 +95,7 @@ impl CognitoClient {
             .context("AWS_REGION not found")
             .map_err(|e| AwsConfigError::EnvVarNotFound(e.to_string()))?;
         let client_secret = env::var("AWS_CLIENT_SECRET")
-            .context("AWS_SECRET_HASH not found")
+            .context("AWS_CLIENT_SECRET not found")
             .map_err(|e| AwsConfigError::EnvVarNotFound(e.to_string()))?;
 
         let region_provider = RegionProviderChain::first_try(Region::new(region.clone()));
