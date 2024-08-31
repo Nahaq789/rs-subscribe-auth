@@ -63,8 +63,8 @@ pub async fn signup(
     Json(payload): Json<AuthRequest>,
 ) -> Result<impl IntoResponse, AuthError> {
     let user = AuthUser::new("test".to_string(), payload.email, payload.password);
-    let token = module.signup_then_signin(&user).await?;
+    module.signup_user(&user).await?;
 
-    let result = AuthResult::new(&token.jwt, &token.refresh, 200);
-    Ok((StatusCode::OK, Json(result)))
+    // let result = AuthResult::new(&token.jwt, &token.refresh, 200);
+    Ok((StatusCode::OK, Json(("User Created", 200))))
 }

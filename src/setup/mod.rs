@@ -16,8 +16,8 @@ pub async fn create_app() {
     let auth_service: Arc<dyn AuthService> = Arc::new(AuthServiceImpl::new(cognito));
 
     let app = Router::new()
-        .route("/signin", post(signin))
-        .route("/signup", post(signup))
+        .route("/api/v1/auth/signin", post(signin))
+        .route("/api/v1/auth/signup", post(signup))
         .layer(Extension(auth_service));
 
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();

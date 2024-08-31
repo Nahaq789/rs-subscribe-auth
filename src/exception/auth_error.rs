@@ -5,8 +5,8 @@ pub enum AuthError {
     #[error("Authentication failed")]
     AuthenticationFailed,
 
-    #[error("Internal Server Error")]
-    InternalServerError,
+    #[error("Internal Server Error: {0}")]
+    InternalServerError(String),
 
     #[error("Configuration Error")]
     ConfigurationError,
