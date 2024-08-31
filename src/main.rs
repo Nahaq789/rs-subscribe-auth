@@ -6,6 +6,7 @@ use rs_subscribe_auth::setup::create_app;
 async fn main() -> anyhow::Result<()> {
     env::set_var("RUST_LOG", "debug");
     env_logger::init();
+    log::info!("Application Started");
     let _ = create_app().await;
 
     Ok(())
