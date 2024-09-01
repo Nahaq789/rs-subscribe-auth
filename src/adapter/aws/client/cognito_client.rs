@@ -5,6 +5,9 @@ use axum::async_trait;
 use dotenv::dotenv;
 use std::env;
 
+use hmac::{Hmac, Mac};
+use sha2::Sha256;
+
 use crate::adapter::aws::provider::{AwsConfigError, AwsProvider};
 
 /// Represents a client for interacting with AWS Cognito
@@ -112,6 +115,17 @@ impl CognitoClient {
             client_secret,
             client,
         ))
+    }
+
+    pub fn client_secret_hash(user_email: &str, client_id: &str, client_secret: &str) -> String {
+        type HmacSha256 = Hmac<Sha256>;
+        let mut mac = HmacSha256::new_from_slice(client_secret.as_bytes())
+            .expect("HMAC can take key of any size");
+
+        mac.update(user_email.as_bytes());
+        mac.update(client_id.as_bytes());
+        let result = mac.finalize();
+        base64::encode(result.into_bytes())
     }
 }
 

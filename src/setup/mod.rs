@@ -1,14 +1,9 @@
+use crate::module::module::AppState;
+use crate::presentation::controller::auth_controller::signin;
+use crate::presentation::controller::auth_controller::signup;
 use axum::routing::post;
 use axum::Extension;
 use axum::Router;
-use std::sync::Arc;
-
-use crate::adapter::aws::client::cognito_client::CognitoClient;
-use crate::presentation::controller::auth_controller::signup;
-use crate::{
-    application::auth::auth_service::{AuthService, AuthServiceImpl},
-    presentation::controller::auth_controller::signin,
-};
 
 /// Creates and configures the main application, setting up routes, services, and the HTTP server.
 ///
@@ -58,17 +53,14 @@ use crate::{
 /// This function is asynchronous and should be run within a Tokio runtime, typically
 /// called from the `main` function decorated with `#[tokio::main]`.
 pub async fn create_app() {
-    // Initialize the Cognito client from environment variables
-    let cognito = Arc::new(CognitoClient::from_env().await.unwrap());
-
-    // Create the authentication service
-    let auth_service: Arc<dyn AuthService> = Arc::new(AuthServiceImpl::new(cognito));
+    // Set up DI
+    let app_state = AppState::new().await;
 
     // Set up the application routes and inject the auth service
     let app = Router::new()
         .route("/api/v1/auth/signin", post(signin))
         .route("/api/v1/auth/signup", post(signup))
-        .layer(Extension(auth_service));
+        .layer(Extension(app_state.auth_service));
 
     // Create a TCP listener and start the server
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
