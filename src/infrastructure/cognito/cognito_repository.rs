@@ -19,12 +19,29 @@ use crate::{
     exception::auth_error::AuthError,
 };
 
+/// Implements the CognitoRepository trait using AWS SDK for Cognito.
+///
+/// This struct provides concrete implementations for user authentication, signup,
+/// and signup confirmation processes using AWS Cognito. It encapsulates the
+/// complexity of interacting with Cognito, including the generation of secret hashes
+/// and handling of Cognito-specific errors.
 #[derive(Clone)]
 pub struct CognitoRepositoryImpl {
+    /// The AWS provider for Cognito client, wrapped in an Arc for thread-safe sharing.
     cognito: Arc<dyn AwsProvider<CognitoClient>>,
 }
 
 impl CognitoRepositoryImpl {
+    /// Creates a new instance of CognitoRepositoryImpl.
+    ///
+    /// # Arguments
+    ///
+    /// * `cognito` - An Arc-wrapped instance of a type implementing the AwsProvider trait for CognitoClient,
+    ///               providing access to AWS Cognito configuration and client.
+    ///
+    /// # Returns
+    ///
+    /// Returns a new instance of `CognitoRepositoryImpl`.
     pub fn new(cognito: Arc<dyn AwsProvider<CognitoClient>>) -> Self {
         CognitoRepositoryImpl { cognito }
     }
@@ -180,6 +197,26 @@ impl CognitoRepository for CognitoRepositoryImpl {
             })
     }
 
+    /// Confirms a user's signup using a verification code.
+    ///
+    /// This method is typically used to complete the registration process by verifying
+    /// the user's email or phone number with a code sent by Cognito during the signup process.
+    ///
+    /// # Arguments
+    ///
+    /// * `auth` - A reference to an `AuthUser` containing the user's email and verification code.
+    ///
+    /// # Returns
+    ///
+    /// Returns a `Result` which is either:
+    /// - `Ok(ConfirmSignUpOutput)` if the confirmation is successful.
+    /// - `Err(AuthError)` if the confirmation fails for any reason.
+    ///
+    /// # Errors
+    ///
+    /// This method can return various `AuthError` variants, including:
+    /// - `AuthError::ConfigurationError` if there's an issue with the AWS configuration.
+    /// - `AuthError::AuthenticationFailed` if the verification code is invalid or expired.
     async fn confirm_code(&self, auth: &AuthUser) -> Result<ConfirmSignUpOutput, AuthError> {
         let cognito = self
             .cognito

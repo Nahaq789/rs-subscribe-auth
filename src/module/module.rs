@@ -6,13 +6,51 @@ use crate::{
     infrastructure::cognito::cognito_repository::CognitoRepositoryImpl,
 };
 
+/// A type alias for a thread-safe, dynamically dispatched AuthService.
+///
+/// This type represents an Arc-wrapped trait object of AuthService that can be
+/// safely shared between threads. It's used to provide a unified interface for
+/// authentication operations throughout the application.
 pub type DynAuthService = Arc<dyn AuthService + Send + Sync>;
 
+/// Represents the global state of the application.
+///
+/// AppState encapsulates all the shared resources and services that need to be
+/// accessible throughout the application's lifetime. It's typically created once
+/// during application startup and then shared across different parts of the app.
 pub struct AppState {
+    /// The authentication service, wrapped in an Arc for thread-safe sharing.
+    ///
+    /// This service provides methods for user authentication, registration, and
+    /// other identity-related operations using AWS Cognito.
     pub auth_service: DynAuthService,
 }
 
 impl AppState {
+    /// Creates a new instance of AppState.
+    ///
+    /// This method initializes all the necessary components of the application state,
+    /// including setting up the AWS Cognito client, creating the Cognito repository,
+    /// and instantiating the authentication service.
+    ///
+    /// # Returns
+    ///
+    /// Returns a new instance of `AppState` with all its components initialized.
+    ///
+    /// # Panics
+    ///
+    /// This method will panic if it fails to initialize the Cognito client from
+    /// environment variables. In a production environment, you might want to
+    /// handle this error more gracefully.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// # async fn run() {
+    /// let app_state = AppState::new().await;
+    /// // Use app_state in your application...
+    /// # }
+    /// ```
     pub async fn new() -> Self {
         // Initialize the Cognito client from environment variables
         let cognito = Arc::new(CognitoClient::from_env().await.unwrap());
