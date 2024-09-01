@@ -72,19 +72,6 @@ impl CognitoClient {
     ///
     /// Returns an `AwsConfigError` if any required environment variable is missing
     /// or if there's an error initializing the AWS client.
-    ///
-    /// # Example
-    ///
-    /// ```no_run
-    /// use your_crate::CognitoClient;
-    ///
-    /// #[tokio::main]
-    /// async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    ///     let client = CognitoClient::from_env().await?;
-    ///     println!("Cognito client initialized with region: {}", client.region);
-    ///     Ok(())
-    /// }
-    /// ```
     pub async fn from_env() -> Result<Self, AwsConfigError> {
         dotenv().ok();
 

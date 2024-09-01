@@ -42,15 +42,6 @@ impl AppState {
     /// This method will panic if it fails to initialize the Cognito client from
     /// environment variables. In a production environment, you might want to
     /// handle this error more gracefully.
-    ///
-    /// # Example
-    ///
-    /// ```rust
-    /// # async fn run() {
-    /// let app_state = AppState::new().await;
-    /// // Use app_state in your application...
-    /// # }
-    /// ```
     pub async fn new() -> Self {
         // Initialize the Cognito client from environment variables
         let cognito = Arc::new(CognitoClient::from_env().await.unwrap());
