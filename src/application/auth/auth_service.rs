@@ -4,6 +4,7 @@ use aws_sdk_cognitoidentityprovider::operation::{
     confirm_sign_up::ConfirmSignUpOutput, sign_up::SignUpOutput,
 };
 use axum::async_trait;
+use mockall::{mock, predicate};
 
 use crate::{
     domain::{
@@ -159,4 +160,47 @@ impl<T: CognitoRepository> AuthService for AuthServiceImpl<T> {
         let result = self.cognito_repository.confirm_code(&user).await?;
         Ok(result)
     }
+}
+
+// ===== TEST SECTION START =====
+
+mock! {
+    CognitoRepository {}
+    #[async_trait]
+    impl CognitoRepository for CognitoRepository {
+        async fn authenticate_user(&self, auth: &AuthUser) -> Result<Token, AuthError>;
+        async fn signup_user(&self, auth: &AuthUser) -> Result<SignUpOutput, AuthError>;
+        async fn confirm_code(&self, auth: &AuthUser) -> Result<ConfirmSignUpOutput, AuthError>;
+    }
+}
+
+#[tokio::test]
+async fn test_authenticate_user_success() {
+    let mut mock_repo = MockCognitoRepository::new();
+    mock_repo
+        .expect_authenticate_user()
+        .with(predicate::function(|auth: &AuthUser| {
+            auth.email == "test@example.com" && auth.password == "password123"
+        }))
+        .times(1)
+        .returning(|_| {
+            Ok(Token::new(
+                "jwt_token".to_string(),
+                "refresh_token".to_string(),
+            ))
+        });
+
+    let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
+
+    let auth_request = AuthRequest {
+        email: "test@example.com".to_string(),
+        password: "password123".to_string(),
+        verify_code: "".to_string(),
+    };
+
+    let result = auth_service.authenticate_user(auth_request).await;
+    assert!(result.is_ok());
+    let token = result.unwrap();
+    assert_eq!(token.jwt, "jwt_token");
+    assert_eq!(token.refresh, "refresh_token");
 }

@@ -11,6 +11,7 @@ use crate::{
 /// CognitoRepository trait defines the interface for interacting with AWS Cognito
 /// for user authentication and management.
 #[async_trait]
+#[mockall::automock]
 pub trait CognitoRepository: Send + Sync + 'static {
     /// Authenticates a user against AWS Cognito.
     ///
