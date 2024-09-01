@@ -62,3 +62,12 @@ pub async fn signup(
 
     Ok((StatusCode::OK, Json(("User Created", 200))))
 }
+
+pub async fn confirm_code(
+    Extension(module): Extension<DynAuthService>,
+    Json(payload): Json<AuthRequest>,
+) -> Result<impl IntoResponse, AuthError> {
+    module.confirm_code(payload).await?;
+
+    Ok((StatusCode::OK, Json(("Confirm Your Account", 200))))
+}

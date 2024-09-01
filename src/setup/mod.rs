@@ -1,4 +1,5 @@
 use crate::module::module::AppState;
+use crate::presentation::controller::auth_controller::confirm_code;
 use crate::presentation::controller::auth_controller::signin;
 use crate::presentation::controller::auth_controller::signup;
 use axum::routing::post;
@@ -60,6 +61,7 @@ pub async fn create_app() {
     let app = Router::new()
         .route("/api/v1/auth/signin", post(signin))
         .route("/api/v1/auth/signup", post(signup))
+        .route("/api/v1/auth/confirm", post(confirm_code))
         .layer(Extension(app_state.auth_service));
 
     // Create a TCP listener and start the server

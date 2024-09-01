@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use aws_sdk_cognitoidentityprovider::operation::sign_up::SignUpOutput;
+use aws_sdk_cognitoidentityprovider::operation::{
+    confirm_sign_up::ConfirmSignUpOutput, sign_up::SignUpOutput,
+};
 use axum::async_trait;
 
 use crate::{
@@ -56,6 +58,7 @@ pub trait AuthService: Send + Sync {
     /// - `Ok(SignUpOutput)` containing the signup result if successful.
     /// - `Err(AuthError)` if signup fails for any reason (e.g., user already exists).
     async fn signup_user(&self, auth: AuthRequest) -> Result<SignUpOutput, AuthError>;
+    async fn confirm_code(&self, auth: AuthRequest) -> Result<ConfirmSignUpOutput, AuthError>;
 }
 
 /// Implements the AuthService trait using AWS Cognito as the authentication backend.
@@ -87,14 +90,20 @@ impl<T: CognitoRepository> AuthServiceImpl<T> {
 #[async_trait]
 impl<T: CognitoRepository> AuthService for AuthServiceImpl<T> {
     async fn authenticate_user(&self, auth: AuthRequest) -> Result<Token, AuthError> {
-        let user = AuthUser::new("".to_string(), auth.email, auth.password);
+        let user = AuthUser::new("".to_string(), auth.email, auth.password, "".to_string());
         let result = self.cognito_repository.authenticate_user(&user).await?;
         Ok(result)
     }
 
     async fn signup_user(&self, auth: AuthRequest) -> Result<SignUpOutput, AuthError> {
-        let user = AuthUser::new("".to_string(), auth.email, auth.password);
+        let user = AuthUser::new("".to_string(), auth.email, auth.password, "".to_string());
         let result = self.cognito_repository.signup_user(&user).await?;
+        Ok(result)
+    }
+
+    async fn confirm_code(&self, auth: AuthRequest) -> Result<ConfirmSignUpOutput, AuthError> {
+        let user = AuthUser::new("".to_string(), auth.email, auth.password, auth.verify_code);
+        let result = self.cognito_repository.confirm_code(&user).await?;
         Ok(result)
     }
 }

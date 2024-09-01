@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use aws_sdk_cognitoidentityprovider::{
     error::SdkError,
-    operation::sign_up::{SignUpError, SignUpOutput},
+    operation::{
+        confirm_sign_up::ConfirmSignUpOutput,
+        sign_up::{SignUpError, SignUpOutput},
+    },
     types::AttributeType,
 };
 use axum::async_trait;
@@ -175,5 +178,35 @@ impl CognitoRepository for CognitoRepositoryImpl {
                     _ => AuthError::InternalServerError(format!("AWS SDK error: {:?}", e)),
                 }
             })
+    }
+
+    async fn confirm_code(&self, auth: &AuthUser) -> Result<ConfirmSignUpOutput, AuthError> {
+        let cognito = self
+            .cognito
+            .get_aws_config()
+            .await
+            .map_err(|_| AuthError::ConfigurationError)?;
+
+        let secret_hash = CognitoClient::client_secret_hash(
+            &auth.email,
+            &cognito.client_id,
+            &cognito.client_secret,
+        );
+
+        let confirm_result = cognito
+            .client
+            .confirm_sign_up()
+            .client_id(&cognito.client_id)
+            .username(&auth.email)
+            .secret_hash(secret_hash)
+            .confirmation_code(&auth.verify_code)
+            .send()
+            .await
+            .map_err(|e| {
+                log::error!("Verify Confirm error: {:?}", e);
+                AuthError::AuthenticationFailed
+            })?;
+
+        Ok(confirm_result)
     }
 }
