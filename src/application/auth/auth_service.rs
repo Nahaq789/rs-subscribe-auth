@@ -204,3 +204,31 @@ async fn test_authenticate_user_success() {
     assert_eq!(token.jwt, "jwt_token");
     assert_eq!(token.refresh, "refresh_token");
 }
+
+#[tokio::test]
+async fn test_authenticate_user_failed() {
+    let mut mock_repo = MockCognitoRepository::new();
+    mock_repo
+        .expect_authenticate_user()
+        .with(predicate::function(|auth: &AuthUser| {
+            auth.email == "test@example.com" && auth.password == "password123"
+        }))
+        .times(1)
+        .returning(|_| {
+            Ok(Token::new(
+                "jwt_token".to_string(),
+                "refresh_token".to_string(),
+            ))
+        });
+    let auth_request = AuthRequest {
+        email: "test@example.com".to_string(),
+        password: "password123".to_string(),
+        verify_code: "".to_string(),
+    };
+    let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
+    let result = auth_service.authenticate_user(auth_request);
+    assert!(result.is_ok());
+    let token = result.unwrap();
+    assert_eq!(token.jwt, "jwt_token");
+    assert_eq!(token.refresh, "refresh_token");
+}
