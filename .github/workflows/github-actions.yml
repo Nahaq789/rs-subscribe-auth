@@ -11,6 +11,7 @@ env:
   AWS_CLIENT_ID: test_client_id
   AWS_REGION: test_region
   AWS_CLIENT_SECRET: test_client_secret
+  RUST_LOG: debug
 
 
 jobs:
