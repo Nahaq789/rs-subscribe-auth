@@ -214,21 +214,17 @@ async fn test_authenticate_user_failed() {
             auth.email == "test@example.com" && auth.password == "password123"
         }))
         .times(1)
-        .returning(|_| {
-            Ok(Token::new(
-                "jwt_token".to_string(),
-                "refresh_token".to_string(),
-            ))
-        });
+        .returning(|_| Err(AuthError::AuthenticationFailed));
     let auth_request = AuthRequest {
         email: "test@example.com".to_string(),
         password: "password123".to_string(),
         verify_code: "".to_string(),
     };
     let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
-    let result = auth_service.authenticate_user(auth_request);
-    assert!(result.is_ok());
-    let token = result.unwrap();
-    assert_eq!(token.jwt, "jwt_token");
-    assert_eq!(token.refresh, "refresh_token");
+    let result = auth_service
+        .authenticate_user(auth_request)
+        .await
+        .map_err(|_| AuthError::AuthenticationFailed);
+
+    assert!(result.is_err());
 }
