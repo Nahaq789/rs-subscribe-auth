@@ -1,12 +1,7 @@
 use std::sync::Arc;
 
 use aws_sdk_cognitoidentityprovider::{
-    error::SdkError,
-    operation::{
-        confirm_sign_up::ConfirmSignUpOutput,
-        sign_up::{SignUpError, SignUpOutput},
-    },
-    types::AttributeType,
+    error::SdkError, operation::sign_up::SignUpError, types::AttributeType,
 };
 use axum::async_trait;
 
@@ -139,7 +134,7 @@ impl CognitoRepository for CognitoRepositoryImpl {
     /// # Returns
     ///
     /// Returns a `Result` which is either:
-    /// - `Ok(SignUpOutput)` containing Cognito's response to the signup request if successful.
+    /// - `Ok(())` containing Cognito's response to the signup request if successful.
     /// - `Err(AuthError)` if the signup process fails for any reason.
     ///
     /// # Errors
@@ -149,7 +144,7 @@ impl CognitoRepository for CognitoRepositoryImpl {
     /// - `AuthError::UserAlreadyExists` if a user with the given email already exists.
     /// - `AuthError::InvalidPassword` if the provided password doesn't meet Cognito's requirements.
     /// - `AuthError::InternalServerError` for other types of errors, including AWS SDK errors.
-    async fn signup_user(&self, auth: &AuthUser) -> Result<SignUpOutput, AuthError> {
+    async fn signup_user(&self, auth: &AuthUser) -> Result<(), AuthError> {
         let cognito = self
             .cognito
             .get_aws_config()
@@ -171,7 +166,7 @@ impl CognitoRepository for CognitoRepositoryImpl {
             &cognito.client_secret,
         );
 
-        cognito
+        let _ = cognito
             .client
             .sign_up()
             .client_id(&cognito.client_id)
@@ -194,7 +189,8 @@ impl CognitoRepository for CognitoRepositoryImpl {
                     },
                     _ => AuthError::InternalServerError(format!("AWS SDK error: {:?}", e)),
                 }
-            })
+            });
+        Ok(())
     }
 
     /// Confirms a user's signup using a verification code.
@@ -209,7 +205,7 @@ impl CognitoRepository for CognitoRepositoryImpl {
     /// # Returns
     ///
     /// Returns a `Result` which is either:
-    /// - `Ok(ConfirmSignUpOutput)` if the confirmation is successful.
+    /// - `Ok(())` if the confirmation is successful.
     /// - `Err(AuthError)` if the confirmation fails for any reason.
     ///
     /// # Errors
@@ -217,7 +213,7 @@ impl CognitoRepository for CognitoRepositoryImpl {
     /// This method can return various `AuthError` variants, including:
     /// - `AuthError::ConfigurationError` if there's an issue with the AWS configuration.
     /// - `AuthError::AuthenticationFailed` if the verification code is invalid or expired.
-    async fn confirm_code(&self, auth: &AuthUser) -> Result<ConfirmSignUpOutput, AuthError> {
+    async fn confirm_code(&self, auth: &AuthUser) -> Result<(), AuthError> {
         let cognito = self
             .cognito
             .get_aws_config()
@@ -230,7 +226,7 @@ impl CognitoRepository for CognitoRepositoryImpl {
             &cognito.client_secret,
         );
 
-        let confirm_result = cognito
+        cognito
             .client
             .confirm_sign_up()
             .client_id(&cognito.client_id)
@@ -244,6 +240,6 @@ impl CognitoRepository for CognitoRepositoryImpl {
                 AuthError::AuthenticationFailed
             })?;
 
-        Ok(confirm_result)
+        Ok(())
     }
 }

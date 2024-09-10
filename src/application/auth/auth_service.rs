@@ -1,8 +1,5 @@
 use std::sync::Arc;
 
-use aws_sdk_cognitoidentityprovider::operation::{
-    confirm_sign_up::ConfirmSignUpOutput, sign_up::SignUpOutput,
-};
 use axum::async_trait;
 use mockall::{mock, predicate};
 
@@ -58,7 +55,7 @@ pub trait AuthService: Send + Sync {
     /// Returns a `Result` which is either:
     /// - `Ok(SignUpOutput)` containing the signup result if successful.
     /// - `Err(AuthError)` if signup fails for any reason (e.g., user already exists).
-    async fn signup_user(&self, auth: AuthRequest) -> Result<SignUpOutput, AuthError>;
+    async fn signup_user(&self, auth: AuthRequest) -> Result<(), AuthError>;
 
     /// Confirms a user's signup using a verification code.
     ///
@@ -74,7 +71,7 @@ pub trait AuthService: Send + Sync {
     /// Returns a `Result` which is either:
     /// - `Ok(ConfirmSignUpOutput)` if the confirmation is successful.
     /// - `Err(AuthError)` if the confirmation fails for any reason.
-    async fn confirm_code(&self, auth: AuthRequest) -> Result<ConfirmSignUpOutput, AuthError>;
+    async fn confirm_code(&self, auth: AuthRequest) -> Result<(), AuthError>;
 }
 
 /// Implements the AuthService trait using AWS Cognito as the authentication backend.
@@ -136,11 +133,11 @@ impl<T: CognitoRepository> AuthService for AuthServiceImpl<T> {
     ///
     /// # Returns
     ///
-    /// Returns a `Result` containing a `SignUpOutput` on success, or an `AuthError` on failure.
-    async fn signup_user(&self, auth: AuthRequest) -> Result<SignUpOutput, AuthError> {
+    /// Returns a `Result` containing a `()` on success, or an `AuthError` on failure.
+    async fn signup_user(&self, auth: AuthRequest) -> Result<(), AuthError> {
         let user = AuthUser::new("".to_string(), auth.email, auth.password, "".to_string());
-        let result = self.cognito_repository.signup_user(&user).await?;
-        Ok(result)
+        self.cognito_repository.signup_user(&user).await?;
+        Ok(())
     }
 
     /// Confirms a user's signup using AWS Cognito.
@@ -154,11 +151,11 @@ impl<T: CognitoRepository> AuthService for AuthServiceImpl<T> {
     ///
     /// # Returns
     ///
-    /// Returns a `Result` containing a `ConfirmSignUpOutput` on success, or an `AuthError` on failure.
-    async fn confirm_code(&self, auth: AuthRequest) -> Result<ConfirmSignUpOutput, AuthError> {
+    /// Returns a `Result` containing a `()` on success, or an `AuthError` on failure.
+    async fn confirm_code(&self, auth: AuthRequest) -> Result<(), AuthError> {
         let user = AuthUser::new("".to_string(), auth.email, auth.password, auth.verify_code);
-        let result = self.cognito_repository.confirm_code(&user).await?;
-        Ok(result)
+        self.cognito_repository.confirm_code(&user).await?;
+        Ok(())
     }
 }
 
@@ -169,8 +166,8 @@ mock! {
     #[async_trait]
     impl CognitoRepository for CognitoRepository {
         async fn authenticate_user(&self, auth: &AuthUser) -> Result<Token, AuthError>;
-        async fn signup_user(&self, auth: &AuthUser) -> Result<SignUpOutput, AuthError>;
-        async fn confirm_code(&self, auth: &AuthUser) -> Result<ConfirmSignUpOutput, AuthError>;
+        async fn signup_user(&self, auth: &AuthUser) -> Result<(), AuthError>;
+        async fn confirm_code(&self, auth: &AuthUser) -> Result<(), AuthError>;
     }
 }
 
@@ -229,28 +226,28 @@ async fn test_authenticate_user_failed() {
     assert!(result.is_err());
 }
 
-// #[tokio::test]
-// async fn test_signup_user_success() {
-//     let mut mock_repo = MockCognitoRepository::new();
-//     let user = SignUpOutput::builder().build();
-//     mock_repo
-//         .expect_signup_user()
-//         .with(predicate::function(|auth: &AuthUser| {
-//             auth.email == "test@example.com" && auth.password == "password123"
-//         }))
-//         .times(1)
-//         .returning(move |_| Ok(user.to_owned()));
+#[tokio::test]
+async fn test_signup_user_success() {
+    let mut mock_repo = MockCognitoRepository::new();
 
-//     let auth_request = AuthRequest {
-//         email: "test@example.com".to_string(),
-//         password: "password123".to_string(),
-//         verify_code: "".to_string(),
-//     };
+    mock_repo
+        .expect_signup_user()
+        .with(predicate::function(|auth: &AuthUser| {
+            auth.email == "test@example.com" && auth.password == "password123"
+        }))
+        .times(1)
+        .returning(move |_| Ok(()));
 
-//     let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
-//     let result = auth_service.signup_user(auth_request).await;
-//     assert!(result.is_ok())
-// }
+    let auth_request = AuthRequest {
+        email: "test@example.com".to_string(),
+        password: "password123".to_string(),
+        verify_code: "".to_string(),
+    };
+
+    let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
+    let result = auth_service.signup_user(auth_request).await;
+    assert!(result.is_ok())
+}
 
 #[tokio::test]
 async fn test_signup_user_falied() {
@@ -276,6 +273,32 @@ async fn test_signup_user_falied() {
         .map_err(|_| AuthError::AuthenticationFailed);
 
     assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_confirm_code_success() {
+    let mut mock_repo = MockCognitoRepository::new();
+    mock_repo
+        .expect_confirm_code()
+        .with(predicate::function(|auth: &AuthUser| {
+            auth.email == "test@example.com" && auth.password == "password123"
+        }))
+        .times(1)
+        .returning(|_| Ok(()));
+
+    let auth_request = AuthRequest {
+        email: "test@example.com".to_string(),
+        password: "password123".to_string(),
+        verify_code: "123456".to_string(),
+    };
+
+    let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
+    let result = auth_service
+        .confirm_code(auth_request)
+        .await
+        .map_err(|_| AuthError::AuthenticationFailed);
+
+    assert!(result.is_ok());
 }
 
 #[tokio::test]
