@@ -228,3 +228,78 @@ async fn test_authenticate_user_failed() {
 
     assert!(result.is_err());
 }
+
+// #[tokio::test]
+// async fn test_signup_user_success() {
+//     let mut mock_repo = MockCognitoRepository::new();
+//     let user = SignUpOutput::builder().build();
+//     mock_repo
+//         .expect_signup_user()
+//         .with(predicate::function(|auth: &AuthUser| {
+//             auth.email == "test@example.com" && auth.password == "password123"
+//         }))
+//         .times(1)
+//         .returning(move |_| Ok(user.to_owned()));
+
+//     let auth_request = AuthRequest {
+//         email: "test@example.com".to_string(),
+//         password: "password123".to_string(),
+//         verify_code: "".to_string(),
+//     };
+
+//     let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
+//     let result = auth_service.signup_user(auth_request).await;
+//     assert!(result.is_ok())
+// }
+
+#[tokio::test]
+async fn test_signup_user_falied() {
+    let mut mock_repo = MockCognitoRepository::new();
+    mock_repo
+        .expect_signup_user()
+        .with(predicate::function(|auth: &AuthUser| {
+            auth.email == "test@example.com" && auth.password == "password123"
+        }))
+        .times(1)
+        .returning(|_| Err(AuthError::AuthenticationFailed));
+
+    let auth_request = AuthRequest {
+        email: "test@example.com".to_string(),
+        password: "password123".to_string(),
+        verify_code: "".to_string(),
+    };
+
+    let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
+    let result = auth_service
+        .signup_user(auth_request)
+        .await
+        .map_err(|_| AuthError::AuthenticationFailed);
+
+    assert!(result.is_err());
+}
+
+#[tokio::test]
+async fn test_confirm_code_falied() {
+    let mut mock_repo = MockCognitoRepository::new();
+    mock_repo
+        .expect_confirm_code()
+        .with(predicate::function(|auth: &AuthUser| {
+            auth.email == "test@example.com" && auth.password == "password123"
+        }))
+        .times(1)
+        .returning(|_| Err(AuthError::AuthenticationFailed));
+
+    let auth_request = AuthRequest {
+        email: "test@example.com".to_string(),
+        password: "password123".to_string(),
+        verify_code: "123456".to_string(),
+    };
+
+    let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
+    let result = auth_service
+        .confirm_code(auth_request)
+        .await
+        .map_err(|_| AuthError::AuthenticationFailed);
+
+    assert!(result.is_err());
+}
