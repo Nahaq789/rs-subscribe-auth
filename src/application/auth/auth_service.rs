@@ -250,7 +250,7 @@ async fn test_signup_user_success() {
 }
 
 #[tokio::test]
-async fn test_signup_user_falied() {
+async fn test_signup_user_failed() {
     let mut mock_repo = MockCognitoRepository::new();
     mock_repo
         .expect_signup_user()
@@ -302,7 +302,7 @@ async fn test_confirm_code_success() {
 }
 
 #[tokio::test]
-async fn test_confirm_code_falied() {
+async fn test_confirm_code_failed() {
     let mut mock_repo = MockCognitoRepository::new();
     mock_repo
         .expect_confirm_code()
