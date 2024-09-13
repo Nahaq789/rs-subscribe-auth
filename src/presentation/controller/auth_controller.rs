@@ -71,3 +71,47 @@ pub async fn confirm_code(
 
     Ok((StatusCode::OK, Json(("Confirm Your Account", 200))))
 }
+
+// ===== TEST SECTION START =====
+#[cfg(test)]
+mockall::mock! {
+    AuthService {}
+    #[axum::async_trait]
+    impl crate::application::auth::auth_service::AuthService for AuthService {
+        async fn authenticate_user(&self, auth: AuthRequest) -> Result<crate::domain::entity::token::Token, AuthError>;
+        async fn signup_user(&self, auth: AuthRequest) -> Result<(), AuthError>;
+        async fn confirm_code(&self, auth: AuthRequest) -> Result<(), AuthError>;
+    }
+}
+
+#[tokio::test]
+async fn test_signin_failed() {
+    let mut mock_service = MockAuthService::new();
+    mock_service
+        .expect_authenticate_user()
+        .with(mockall::predicate::function(|auth: &AuthRequest| {
+            auth.email == "hogehoge@email.com"
+                && auth.password == "hogehoge"
+                && auth.verify_code == "hogehoge12345"
+        }))
+        .returning(|_| {
+            Ok(crate::domain::entity::token::Token::new(
+                "jwt".to_string(),
+                "refresh".to_string(),
+            ))
+        });
+
+    let auth_request = AuthRequest {
+        email: "hogehoge@email.com".to_string(),
+        password: "hogehoge".to_string(),
+        verify_code: "hogehoge12345".to_string(),
+    };
+
+    let state = crate::module::module::AppState::new().await;
+
+    let result = signin(Extension(state.auth_service), Json(auth_request))
+        .await
+        .map_err(|_| AuthError::AuthenticationFailed);
+
+    assert!(result.is_err())
+}
