@@ -1,14 +1,10 @@
-use axum::{
-    http::StatusCode,
-    response::{IntoResponse, Response},
-    Extension, Json,
-};
-
 use crate::{
     exception::auth_error::AuthError,
     module::module::DynAuthService,
     presentation::dto::{auth_request::AuthRequest, auth_result::AuthResult},
 };
+use axum::{http::StatusCode, response::{IntoResponse, Response}, Extension, Json};
+
 
 /// Implements the `IntoResponse` trait for `AuthError`.
 /// This allows `AuthError` to be converted into an HTTP response.
@@ -74,44 +70,121 @@ pub async fn confirm_code(
 
 // ===== TEST SECTION START =====
 #[cfg(test)]
-mockall::mock! {
-    AuthService {}
-    #[axum::async_trait]
-    impl crate::application::auth::auth_service::AuthService for AuthService {
-        async fn authenticate_user(&self, auth: AuthRequest) -> Result<crate::domain::entity::token::Token, AuthError>;
-        async fn signup_user(&self, auth: AuthRequest) -> Result<(), AuthError>;
-        async fn confirm_code(&self, auth: AuthRequest) -> Result<(), AuthError>;
+mod test {
+    use super::*;
+    use crate::application::auth::auth_service::AuthService;
+    use crate::domain::entity::token::Token;
+    use crate::module::module::AppState;
+    use axum::body::Body;
+    use axum::http::Request;
+    use axum::Router;
+    use http_body_util::BodyExt;
+    use serde_json::Value;
+    use std::string::String;
+    use std::sync::Arc;
+    use tower::ServiceExt;
+
+    mockall::mock! {
+        AuthService {}
+        #[axum::async_trait]
+        impl AuthService for AuthService {
+            async fn authenticate_user(&self, auth: AuthRequest) -> Result<Token, AuthError>;
+            async fn signup_user(&self, auth: AuthRequest) -> Result<(), AuthError>;
+            async fn confirm_code(&self, auth: AuthRequest) -> Result<(), AuthError>;
+        }
+    }
+
+    async fn app(auth_service: Arc<dyn AuthService + Send + Sync>) -> Router {
+        let state = AppState::new_with_auth_service(auth_service);
+
+        Router::new().route("/api/v1/auth/signin", axum::routing::post(signin)).layer(Extension(state.auth_service))
+    }
+
+    #[tokio::test]
+    async fn test_signin_success() {
+        let mut mock_service = MockAuthService::new();
+        let result_jwt = String::from("hogehogehoge");
+        let result_refresh = String::from("fugafugafuga");
+        mock_service
+            .expect_authenticate_user()
+            .with(mockall::predicate::function(|auth: &AuthRequest| {
+                auth.email == "hogehoge@email.com"
+                    && auth.password == "hogehoge"
+                    && auth.verify_code == "hogehoge12345"
+            }))
+            .times(1)
+            .returning(|_| Ok(Token::new(
+                "hogehogehoge".to_string(),
+                "fugafugafuga".to_string(),
+            )));
+
+        let auth_request = AuthRequest {
+            email: "hogehoge@email.com".to_string(),
+            password: "hogehoge".to_string(),
+            verify_code: "hogehoge12345".to_string(),
+        };
+
+        let json_body = serde_json::to_string(&auth_request).unwrap();
+        let request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/auth/signin")
+            .header("Content-Type", "application/json")
+            .body(Body::from(json_body))
+            .unwrap();
+
+        let app = app(Arc::new(mock_service)).await;
+
+
+        let response = app
+            .oneshot(request)
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(body["jwt"], result_jwt);
+        assert_eq!(body["refresh"], result_refresh);
+    }
+
+    #[tokio::test]
+    async fn test_signin_failed() {
+        let mut mock_service = MockAuthService::new();
+        mock_service
+            .expect_authenticate_user()
+            .with(mockall::predicate::function(|auth: &AuthRequest| {
+                auth.email == "hogehoge@email.com"
+                    && auth.password == "hogehoge"
+                    && auth.verify_code == "hogehoge12345"
+            }))
+            .returning(|_| {
+                Err(AuthError::AuthenticationFailed)
+            });
+
+        let auth_request = AuthRequest {
+            email: "hogehoge@email.com".to_string(),
+            password: "hogehoge".to_string(),
+            verify_code: "hogehoge12345".to_string(),
+        };
+
+        let json_body = serde_json::to_string(&auth_request).unwrap();
+        let request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/auth/signin")
+            .header("Content-Type", "application/json")
+            .body(Body::from(json_body))
+            .unwrap();
+
+        let app = app(Arc::new(mock_service)).await;
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(body, AuthError::AuthenticationFailed.to_string())
     }
 }
 
-#[tokio::test]
-async fn test_signin_failed() {
-    let mut mock_service = MockAuthService::new();
-    mock_service
-        .expect_authenticate_user()
-        .with(mockall::predicate::function(|auth: &AuthRequest| {
-            auth.email == "hogehoge@email.com"
-                && auth.password == "hogehoge"
-                && auth.verify_code == "hogehoge12345"
-        }))
-        .returning(|_| {
-            Ok(crate::domain::entity::token::Token::new(
-                "jwt".to_string(),
-                "refresh".to_string(),
-            ))
-        });
 
-    let auth_request = AuthRequest {
-        email: "hogehoge@email.com".to_string(),
-        password: "hogehoge".to_string(),
-        verify_code: "hogehoge12345".to_string(),
-    };
-
-    let state = crate::module::module::AppState::new().await;
-
-    let result = signin(Extension(state.auth_service), Json(auth_request))
-        .await
-        .map_err(|_| AuthError::AuthenticationFailed);
-
-    assert!(result.is_err())
-}
