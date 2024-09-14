@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use axum::async_trait;
-use mockall::{mock, predicate};
+
 
 use crate::{
     domain::{
@@ -161,168 +161,174 @@ impl<T: CognitoRepository> AuthService for AuthServiceImpl<T> {
 
 // ===== TEST SECTION START =====
 
-mock! {
-    CognitoRepository {}
-    #[async_trait]
-    impl CognitoRepository for CognitoRepository {
-        async fn authenticate_user(&self, auth: &AuthUser) -> Result<Token, AuthError>;
-        async fn signup_user(&self, auth: &AuthUser) -> Result<(), AuthError>;
-        async fn confirm_code(&self, auth: &AuthUser) -> Result<(), AuthError>;
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use mockall::mock;
+
+    mock! {
+        CognitoRepository {}
+        #[async_trait]
+        impl CognitoRepository for CognitoRepository {
+            async fn authenticate_user(&self, auth: &AuthUser) -> Result<Token, AuthError>;
+            async fn signup_user(&self, auth: &AuthUser) -> Result<(), AuthError>;
+            async fn confirm_code(&self, auth: &AuthUser) -> Result<(), AuthError>;
+        }
     }
-}
+    #[tokio::test]
+    async fn test_authenticate_user_success() {
+        let mut mock_repo = MockCognitoRepository::new();
+        mock_repo
+            .expect_authenticate_user()
+            .with(mockall::predicate::function(|auth: &AuthUser| {
+                auth.email == "test@example.com" && auth.password == "password123"
+            }))
+            .times(1)
+            .returning(|_| {
+                Ok(Token::new(
+                    "jwt_token".to_string(),
+                    "refresh_token".to_string(),
+                ))
+            });
 
-#[tokio::test]
-async fn test_authenticate_user_success() {
-    let mut mock_repo = MockCognitoRepository::new();
-    mock_repo
-        .expect_authenticate_user()
-        .with(predicate::function(|auth: &AuthUser| {
-            auth.email == "test@example.com" && auth.password == "password123"
-        }))
-        .times(1)
-        .returning(|_| {
-            Ok(Token::new(
-                "jwt_token".to_string(),
-                "refresh_token".to_string(),
-            ))
-        });
+        let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
 
-    let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
+        let auth_request = AuthRequest {
+            email: "test@example.com".to_string(),
+            password: "password123".to_string(),
+            verify_code: "".to_string(),
+        };
 
-    let auth_request = AuthRequest {
-        email: "test@example.com".to_string(),
-        password: "password123".to_string(),
-        verify_code: "".to_string(),
-    };
+        let result = auth_service.authenticate_user(auth_request).await;
+        assert!(result.is_ok());
+        let token = result.unwrap();
+        assert_eq!(token.jwt, "jwt_token");
+        assert_eq!(token.refresh, "refresh_token");
+    }
 
-    let result = auth_service.authenticate_user(auth_request).await;
-    assert!(result.is_ok());
-    let token = result.unwrap();
-    assert_eq!(token.jwt, "jwt_token");
-    assert_eq!(token.refresh, "refresh_token");
-}
+    #[tokio::test]
+    async fn test_authenticate_user_failed() {
+        let mut mock_repo = MockCognitoRepository::new();
+        mock_repo
+            .expect_authenticate_user()
+            .with(mockall::predicate::function(|auth: &AuthUser| {
+                auth.email == "test@example.com" && auth.password == "password123"
+            }))
+            .times(1)
+            .returning(|_| Err(AuthError::AuthenticationFailed));
+        let auth_request = AuthRequest {
+            email: "test@example.com".to_string(),
+            password: "password123".to_string(),
+            verify_code: "".to_string(),
+        };
+        let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
+        let result = auth_service
+            .authenticate_user(auth_request)
+            .await
+            .map_err(|_| AuthError::AuthenticationFailed);
 
-#[tokio::test]
-async fn test_authenticate_user_failed() {
-    let mut mock_repo = MockCognitoRepository::new();
-    mock_repo
-        .expect_authenticate_user()
-        .with(predicate::function(|auth: &AuthUser| {
-            auth.email == "test@example.com" && auth.password == "password123"
-        }))
-        .times(1)
-        .returning(|_| Err(AuthError::AuthenticationFailed));
-    let auth_request = AuthRequest {
-        email: "test@example.com".to_string(),
-        password: "password123".to_string(),
-        verify_code: "".to_string(),
-    };
-    let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
-    let result = auth_service
-        .authenticate_user(auth_request)
-        .await
-        .map_err(|_| AuthError::AuthenticationFailed);
+        assert!(result.is_err());
+    }
 
-    assert!(result.is_err());
-}
+    #[tokio::test]
+    async fn test_signup_user_success() {
+        let mut mock_repo = MockCognitoRepository::new();
 
-#[tokio::test]
-async fn test_signup_user_success() {
-    let mut mock_repo = MockCognitoRepository::new();
+        mock_repo
+            .expect_signup_user()
+            .with(mockall::predicate::function(|auth: &AuthUser| {
+                auth.email == "test@example.com" && auth.password == "password123"
+            }))
+            .times(1)
+            .returning(move |_| Ok(()));
 
-    mock_repo
-        .expect_signup_user()
-        .with(predicate::function(|auth: &AuthUser| {
-            auth.email == "test@example.com" && auth.password == "password123"
-        }))
-        .times(1)
-        .returning(move |_| Ok(()));
+        let auth_request = AuthRequest {
+            email: "test@example.com".to_string(),
+            password: "password123".to_string(),
+            verify_code: "".to_string(),
+        };
 
-    let auth_request = AuthRequest {
-        email: "test@example.com".to_string(),
-        password: "password123".to_string(),
-        verify_code: "".to_string(),
-    };
+        let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
+        let result = auth_service.signup_user(auth_request).await;
+        assert!(result.is_ok())
+    }
 
-    let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
-    let result = auth_service.signup_user(auth_request).await;
-    assert!(result.is_ok())
-}
+    #[tokio::test]
+    async fn test_signup_user_failed() {
+        let mut mock_repo = MockCognitoRepository::new();
+        mock_repo
+            .expect_signup_user()
+            .with(mockall::predicate::function(|auth: &AuthUser| {
+                auth.email == "test@example.com" && auth.password == "password123"
+            }))
+            .times(1)
+            .returning(|_| Err(AuthError::AuthenticationFailed));
 
-#[tokio::test]
-async fn test_signup_user_failed() {
-    let mut mock_repo = MockCognitoRepository::new();
-    mock_repo
-        .expect_signup_user()
-        .with(predicate::function(|auth: &AuthUser| {
-            auth.email == "test@example.com" && auth.password == "password123"
-        }))
-        .times(1)
-        .returning(|_| Err(AuthError::AuthenticationFailed));
+        let auth_request = AuthRequest {
+            email: "test@example.com".to_string(),
+            password: "password123".to_string(),
+            verify_code: "".to_string(),
+        };
 
-    let auth_request = AuthRequest {
-        email: "test@example.com".to_string(),
-        password: "password123".to_string(),
-        verify_code: "".to_string(),
-    };
+        let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
+        let result = auth_service
+            .signup_user(auth_request)
+            .await
+            .map_err(|_| AuthError::AuthenticationFailed);
 
-    let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
-    let result = auth_service
-        .signup_user(auth_request)
-        .await
-        .map_err(|_| AuthError::AuthenticationFailed);
+        assert!(result.is_err());
+    }
 
-    assert!(result.is_err());
-}
+    #[tokio::test]
+    async fn test_confirm_code_success() {
+        let mut mock_repo = MockCognitoRepository::new();
+        mock_repo
+            .expect_confirm_code()
+            .with(mockall::predicate::function(|auth: &AuthUser| {
+                auth.email == "test@example.com" && auth.password == "password123"
+            }))
+            .times(1)
+            .returning(|_| Ok(()));
 
-#[tokio::test]
-async fn test_confirm_code_success() {
-    let mut mock_repo = MockCognitoRepository::new();
-    mock_repo
-        .expect_confirm_code()
-        .with(predicate::function(|auth: &AuthUser| {
-            auth.email == "test@example.com" && auth.password == "password123"
-        }))
-        .times(1)
-        .returning(|_| Ok(()));
+        let auth_request = AuthRequest {
+            email: "test@example.com".to_string(),
+            password: "password123".to_string(),
+            verify_code: "123456".to_string(),
+        };
 
-    let auth_request = AuthRequest {
-        email: "test@example.com".to_string(),
-        password: "password123".to_string(),
-        verify_code: "123456".to_string(),
-    };
+        let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
+        let result = auth_service
+            .confirm_code(auth_request)
+            .await
+            .map_err(|_| AuthError::AuthenticationFailed);
 
-    let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
-    let result = auth_service
-        .confirm_code(auth_request)
-        .await
-        .map_err(|_| AuthError::AuthenticationFailed);
+        assert!(result.is_ok());
+    }
 
-    assert!(result.is_ok());
-}
+    #[tokio::test]
+    async fn test_confirm_code_failed() {
+        let mut mock_repo = MockCognitoRepository::new();
+        mock_repo
+            .expect_confirm_code()
+            .with(mockall::predicate::function(|auth: &AuthUser| {
+                auth.email == "test@example.com" && auth.password == "password123"
+            }))
+            .times(1)
+            .returning(|_| Err(AuthError::AuthenticationFailed));
 
-#[tokio::test]
-async fn test_confirm_code_failed() {
-    let mut mock_repo = MockCognitoRepository::new();
-    mock_repo
-        .expect_confirm_code()
-        .with(predicate::function(|auth: &AuthUser| {
-            auth.email == "test@example.com" && auth.password == "password123"
-        }))
-        .times(1)
-        .returning(|_| Err(AuthError::AuthenticationFailed));
+        let auth_request = AuthRequest {
+            email: "test@example.com".to_string(),
+            password: "password123".to_string(),
+            verify_code: "123456".to_string(),
+        };
 
-    let auth_request = AuthRequest {
-        email: "test@example.com".to_string(),
-        password: "password123".to_string(),
-        verify_code: "123456".to_string(),
-    };
+        let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
+        let result = auth_service
+            .confirm_code(auth_request)
+            .await
+            .map_err(|_| AuthError::AuthenticationFailed);
 
-    let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
-    let result = auth_service
-        .confirm_code(auth_request)
-        .await
-        .map_err(|_| AuthError::AuthenticationFailed);
-
-    assert!(result.is_err());
+        assert!(result.is_err());
+    }
 }
