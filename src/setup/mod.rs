@@ -1,14 +1,10 @@
+use crate::modules::module::AppState;
+use crate::presentation::controller::auth_controller::confirm_code;
+use crate::presentation::controller::auth_controller::signin;
+use crate::presentation::controller::auth_controller::signup;
 use axum::routing::post;
 use axum::Extension;
 use axum::Router;
-use std::sync::Arc;
-
-use crate::adapter::aws::client::cognito_client::CognitoClient;
-use crate::presentation::controller::auth_controller::signup;
-use crate::{
-    application::auth::auth_service::{AuthService, AuthServiceImpl},
-    presentation::controller::auth_controller::signin,
-};
 
 /// Creates and configures the main application, setting up routes, services, and the HTTP server.
 ///
@@ -31,7 +27,7 @@ use crate::{
 /// - `/api/v1/auth/signup`: Handles user sign-up requests.
 ///
 /// Both routes use POST methods and are mapped to their respective handler functions
-/// (`signin` and `signup`) from the `auth_controller` module.
+/// (`signin` and `signup`) from the `auth_controller` modules.
 ///
 /// # Middleware
 ///
@@ -58,17 +54,15 @@ use crate::{
 /// This function is asynchronous and should be run within a Tokio runtime, typically
 /// called from the `main` function decorated with `#[tokio::main]`.
 pub async fn create_app() {
-    // Initialize the Cognito client from environment variables
-    let cognito = Arc::new(CognitoClient::from_env().await.unwrap());
-
-    // Create the authentication service
-    let auth_service: Arc<dyn AuthService> = Arc::new(AuthServiceImpl::new(cognito));
+    // Set up DI
+    let app_state = AppState::new().await;
 
     // Set up the application routes and inject the auth service
     let app = Router::new()
         .route("/api/v1/auth/signin", post(signin))
         .route("/api/v1/auth/signup", post(signup))
-        .layer(Extension(auth_service));
+        .route("/api/v1/auth/confirm", post(confirm_code))
+        .layer(Extension(app_state.auth_service));
 
     // Create a TCP listener and start the server
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();

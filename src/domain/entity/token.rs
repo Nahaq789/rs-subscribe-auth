@@ -1,3 +1,4 @@
+#[derive(Clone)]
 pub struct Token {
     pub jwt: String,
     pub refresh: String,
