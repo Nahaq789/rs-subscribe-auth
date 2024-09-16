@@ -1591,6 +1591,7 @@ dependencies = [
  "log",
  "mockall",
  "rand_core",
+ "regex",
  "serde",
  "serde_json",
  "sha2",
