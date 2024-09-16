@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use axum::async_trait;
 
-
 use crate::{
     domain::{
         entity::{auth_user::AuthUser, token::Token},
@@ -160,7 +159,6 @@ impl<T: CognitoRepository> AuthService for AuthServiceImpl<T> {
 }
 
 // ===== TEST SECTION START =====
-
 
 #[cfg(test)]
 mod test {

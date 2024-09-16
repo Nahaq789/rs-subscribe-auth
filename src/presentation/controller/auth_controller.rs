@@ -3,7 +3,11 @@ use crate::{
     modules::module::DynAuthService,
     presentation::dto::{auth_request::AuthRequest, auth_result::AuthResult},
 };
-use axum::{http::StatusCode, response::{IntoResponse, Response}, Extension, Json};
+use axum::{
+    http::StatusCode,
+    response::{IntoResponse, Response},
+    Extension, Json,
+};
 use serde_json::json;
 
 /// Implements the `IntoResponse` trait for `AuthError`.
@@ -123,10 +127,12 @@ mod test {
                     && auth.verify_code == "hogehoge12345"
             }))
             .times(1)
-            .returning(|_| Ok(Token::new(
-                "hogehogehoge".to_string(),
-                "fugafugafuga".to_string(),
-            )));
+            .returning(|_| {
+                Ok(Token::new(
+                    "hogehogehoge".to_string(),
+                    "fugafugafuga".to_string(),
+                ))
+            });
 
         let auth_request = AuthRequest {
             email: "hogehoge@email.com".to_string(),
@@ -144,11 +150,7 @@ mod test {
 
         let app = app(Arc::new(mock_service)).await;
 
-
-        let response = app
-            .oneshot(request)
-            .await
-            .unwrap();
+        let response = app.oneshot(request).await.unwrap();
 
         assert_eq!(response.status(), StatusCode::OK);
 
@@ -169,9 +171,7 @@ mod test {
                     && auth.password == "hogehoge"
                     && auth.verify_code == "hogehoge12345"
             }))
-            .returning(|_| {
-                Err(AuthError::AuthenticationFailed)
-            });
+            .returning(|_| Err(AuthError::AuthenticationFailed));
 
         let auth_request = AuthRequest {
             email: "hogehoge@email.com".to_string(),
@@ -225,7 +225,6 @@ mod test {
         let app = app(Arc::new(mock_service)).await;
         let response = app.oneshot(request).await.unwrap();
 
-
         assert_eq!(response.status(), StatusCode::OK);
 
         let body = response.into_body().collect().await.unwrap().to_bytes();
@@ -262,7 +261,6 @@ mod test {
 
         let app = app(Arc::new(mock_service)).await;
         let response = app.oneshot(request).await.unwrap();
-
 
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
 
@@ -342,4 +340,3 @@ mod test {
         assert_eq!(body, "Authentication failed")
     }
 }
-
