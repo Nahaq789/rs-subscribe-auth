@@ -1,6 +1,6 @@
 use crate::{
     exception::auth_error::AuthError,
-    module::module::DynAuthService,
+    modules::module::DynAuthService,
     presentation::dto::{auth_request::AuthRequest, auth_result::AuthResult},
 };
 use axum::{http::StatusCode, response::{IntoResponse, Response}, Extension, Json};
@@ -23,7 +23,7 @@ impl IntoResponse for AuthError {
 ///
 /// # Arguments
 ///
-/// * `module` - An `Arc` wrapped `AuthService` implementation.
+/// * `modules` - An `Arc` wrapped `AuthService` implementation.
 /// * `payload` - The JSON payload containing the user's credentials.
 ///
 /// # Returns
@@ -44,7 +44,7 @@ pub async fn signin(
 ///
 /// # Arguments
 ///
-/// * `module` - An `Arc` wrapped `AuthService` implementation.
+/// * `modules` - An `Arc` wrapped `AuthService` implementation.
 /// * `payload` - The JSON payload containing the user's registration information.
 ///
 /// # Returns
@@ -80,7 +80,7 @@ mod test {
     use super::*;
     use crate::application::auth::auth_service::AuthService;
     use crate::domain::entity::token::Token;
-    use crate::module::module::AppState;
+    use crate::modules::module::AppState;
     use axum::body::Body;
     use axum::http::Request;
     use axum::Router;

@@ -139,7 +139,7 @@ impl AwsProvider<CognitoClient> for CognitoClient {
 }
 
 // ===== TEST SECTION START =====
-// The following module contains all unit tests for the CognitoClient.
+// The following modules contains all unit tests for the CognitoClient.
 // These tests verify the correct functionality of CognitoClient creation and initialization.
 // Note: Some tests may require specific environment variables to be set.
 #[cfg(test)]

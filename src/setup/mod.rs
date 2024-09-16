@@ -1,4 +1,4 @@
-use crate::module::module::AppState;
+use crate::modules::module::AppState;
 use crate::presentation::controller::auth_controller::confirm_code;
 use crate::presentation::controller::auth_controller::signin;
 use crate::presentation::controller::auth_controller::signup;
@@ -27,7 +27,7 @@ use axum::Router;
 /// - `/api/v1/auth/signup`: Handles user sign-up requests.
 ///
 /// Both routes use POST methods and are mapped to their respective handler functions
-/// (`signin` and `signup`) from the `auth_controller` module.
+/// (`signin` and `signup`) from the `auth_controller` modules.
 ///
 /// # Middleware
 ///
