@@ -1,0 +1,34 @@
+name: rs-subscribe-auth CI
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+env:
+  AWS_USER_POOL_ID: test_pool_id
+  AWS_CLIENT_ID: test_client_id
+  AWS_REGION: test_region
+  AWS_CLIENT_SECRET: test_client_secret
+  RUST_LOG: debug
+
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build
+        run: cargo build --verbose
+      - name: Run tests
+        run: cargo test --color=always --package rs-subscribe-auth --lib
+      - name: Check formatting
+        run: cargo fmt -- --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run clippy
+        run: cargo clippy -- -D warnings

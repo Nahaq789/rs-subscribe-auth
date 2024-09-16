@@ -1,6 +1,3 @@
-use aws_sdk_cognitoidentityprovider::operation::{
-    confirm_sign_up::ConfirmSignUpOutput, sign_up::SignUpOutput,
-};
 use axum::async_trait;
 
 use crate::{
@@ -31,8 +28,8 @@ pub trait CognitoRepository: Send + Sync + 'static {
     ///
     /// # Returns
     ///
-    /// Returns a Result containing a SignUpOutput on success, or an AuthError on failure.
-    async fn signup_user(&self, auth: &AuthUser) -> Result<SignUpOutput, AuthError>;
+    /// Returns a Result containing a void on success, or an AuthError on failure.
+    async fn signup_user(&self, auth: &AuthUser) -> Result<(), AuthError>;
 
     /// Confirms a user's signup using a confirmation code.
     ///
@@ -42,6 +39,6 @@ pub trait CognitoRepository: Send + Sync + 'static {
     ///
     /// # Returns
     ///
-    /// Returns a Result containing a ConfirmSignUpOutput on success, or an AuthError on failure.
-    async fn confirm_code(&self, auth: &AuthUser) -> Result<ConfirmSignUpOutput, AuthError>;
+    /// Returns a Result containing a void on success, or an AuthError on failure.
+    async fn confirm_code(&self, auth: &AuthUser) -> Result<(), AuthError>;
 }

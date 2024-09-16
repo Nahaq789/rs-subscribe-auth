@@ -9,6 +9,8 @@ use hmac::{Hmac, Mac};
 use sha2::Sha256;
 
 use crate::adapter::aws::provider::{AwsConfigError, AwsProvider};
+use base64::engine::general_purpose;
+use base64::Engine as _;
 
 /// Represents a client for interacting with AWS Cognito
 ///
@@ -112,7 +114,7 @@ impl CognitoClient {
         mac.update(user_email.as_bytes());
         mac.update(client_id.as_bytes());
         let result = mac.finalize();
-        base64::encode(result.into_bytes())
+        general_purpose::STANDARD.encode(result.into_bytes())
     }
 }
 
@@ -137,7 +139,7 @@ impl AwsProvider<CognitoClient> for CognitoClient {
 }
 
 // ===== TEST SECTION START =====
-// The following module contains all unit tests for the CognitoClient.
+// The following modules contains all unit tests for the CognitoClient.
 // These tests verify the correct functionality of CognitoClient creation and initialization.
 // Note: Some tests may require specific environment variables to be set.
 #[cfg(test)]

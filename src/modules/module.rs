@@ -54,4 +54,21 @@ impl AppState {
 
         Self { auth_service }
     }
+
+    /// Creates a new instance of AppState with a custom AuthService.
+    ///
+    /// This method is particularly useful for testing, where you might want to
+    /// inject a mock AuthService.
+    ///
+    /// # Arguments
+    ///
+    /// * `auth_service` - An Arc-wrapped trait object implementing AuthService
+    ///
+    /// # Returns
+    ///
+    /// Returns a new instance of `AppState` with the provided AuthService.
+    #[cfg(test)]
+    pub fn new_with_auth_service(auth_service: Arc<dyn AuthService>) -> Self {
+        Self { auth_service }
+    }
 }
