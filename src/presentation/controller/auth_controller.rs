@@ -4,7 +4,7 @@ use crate::{
     presentation::dto::{auth_request::AuthRequest, auth_result::AuthResult},
 };
 use axum::{http::StatusCode, response::{IntoResponse, Response}, Extension, Json};
-
+use serde_json::json;
 
 /// Implements the `IntoResponse` trait for `AuthError`.
 /// This allows `AuthError` to be converted into an HTTP response.
@@ -55,8 +55,11 @@ pub async fn signup(
     Json(payload): Json<AuthRequest>,
 ) -> Result<impl IntoResponse, AuthError> {
     module.signup_user(payload).await?;
+    let response = json! {
+        {"message": "User Created", "Status Code": 200}
+    };
 
-    Ok((StatusCode::OK, Json(("User Created", 200))))
+    Ok((StatusCode::OK, Json(response)))
 }
 
 pub async fn confirm_code(
@@ -65,7 +68,10 @@ pub async fn confirm_code(
 ) -> Result<impl IntoResponse, AuthError> {
     module.confirm_code(payload).await?;
 
-    Ok((StatusCode::OK, Json(("Confirm Your Account", 200))))
+    let response = json! {
+        {"message": "Confirm Your Account", "Status Code": 200}
+    };
+    Ok((StatusCode::OK, Json(response)))
 }
 
 // ===== TEST SECTION START =====
@@ -97,7 +103,11 @@ mod test {
     async fn app(auth_service: Arc<dyn AuthService + Send + Sync>) -> Router {
         let state = AppState::new_with_auth_service(auth_service);
 
-        Router::new().route("/api/v1/auth/signin", axum::routing::post(signin)).layer(Extension(state.auth_service))
+        Router::new()
+            .route("/api/v1/auth/signin", axum::routing::post(signin))
+            .route("/api/v1/auth/signup", axum::routing::post(signup))
+            .route("/api/v1/auth/confirm", axum::routing::post(confirm_code))
+            .layer(Extension(state.auth_service))
     }
 
     #[tokio::test]
@@ -185,6 +195,151 @@ mod test {
         let body = response.into_body().collect().await.unwrap().to_bytes();
         assert_eq!(body, AuthError::AuthenticationFailed.to_string())
     }
-}
 
+    #[tokio::test]
+    async fn test_signup_success() {
+        let mut mock_service = MockAuthService::new();
+        mock_service
+            .expect_signup_user()
+            .with(mockall::predicate::function(|auth: &AuthRequest| {
+                auth.email == "hogehoge@email.com"
+                    && auth.password == "hogehoge"
+                    && auth.verify_code == "hogehoge12345"
+            }))
+            .times(1)
+            .returning(|_| Ok(()));
+
+        let auth_request = AuthRequest {
+            email: "hogehoge@email.com".to_string(),
+            password: "hogehoge".to_string(),
+            verify_code: "hogehoge12345".to_string(),
+        };
+        let json_body = serde_json::to_string(&auth_request).unwrap();
+        let request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/auth/signup")
+            .header("Content-Type", "application/json")
+            .body(Body::from(json_body))
+            .unwrap();
+
+        let app = app(Arc::new(mock_service)).await;
+        let response = app.oneshot(request).await.unwrap();
+
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["message"], "User Created");
+        assert_eq!(body["Status Code"], 200);
+    }
+
+    #[tokio::test]
+    async fn test_signup_failed() {
+        let mut mock_service = MockAuthService::new();
+        mock_service
+            .expect_signup_user()
+            .with(mockall::predicate::function(|auth: &AuthRequest| {
+                auth.email == "hogehoge@email.com"
+                    && auth.password == "hogehoge"
+                    && auth.verify_code == "hogehoge12345"
+            }))
+            .times(1)
+            .returning(|_| Err(AuthError::InternalServerError("test".to_string())));
+
+        let auth_request = AuthRequest {
+            email: "hogehoge@email.com".to_string(),
+            password: "hogehoge".to_string(),
+            verify_code: "hogehoge12345".to_string(),
+        };
+        let json_body = serde_json::to_string(&auth_request).unwrap();
+        let request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/auth/signup")
+            .header("Content-Type", "application/json")
+            .body(Body::from(json_body))
+            .unwrap();
+
+        let app = app(Arc::new(mock_service)).await;
+        let response = app.oneshot(request).await.unwrap();
+
+
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(body, "Internal Server Error: test");
+    }
+
+    #[tokio::test]
+    async fn test_confirm_code_success() {
+        let mut mock_service = MockAuthService::new();
+        mock_service
+            .expect_confirm_code()
+            .with(mockall::predicate::function(|auth: &AuthRequest| {
+                auth.email == "hogehoge@email.com"
+                    && auth.password == "hogehoge"
+                    && auth.verify_code == "hogehoge12345"
+            }))
+            .times(1)
+            .returning(|_| Ok(()));
+
+        let auth_request = AuthRequest {
+            email: "hogehoge@email.com".to_string(),
+            password: "hogehoge".to_string(),
+            verify_code: "hogehoge12345".to_string(),
+        };
+        let json_body = serde_json::to_string(&auth_request).unwrap();
+        let request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/auth/confirm")
+            .header("Content-Type", "application/json")
+            .body(Body::from(json_body))
+            .unwrap();
+
+        let app = app(Arc::new(mock_service)).await;
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["message"], "Confirm Your Account");
+        assert_eq!(body["Status Code"], 200);
+    }
+
+    #[tokio::test]
+    async fn test_confirm_code_failed() {
+        let mut mock_service = MockAuthService::new();
+        mock_service
+            .expect_confirm_code()
+            .with(mockall::predicate::function(|auth: &AuthRequest| {
+                auth.email == "hogehoge@email.com"
+                    && auth.password == "hogehoge"
+                    && auth.verify_code == "hogehoge12345"
+            }))
+            .times(1)
+            .returning(|_| Err(AuthError::AuthenticationFailed));
+
+        let auth_request = AuthRequest {
+            email: "hogehoge@email.com".to_string(),
+            password: "hogehoge".to_string(),
+            verify_code: "hogehoge12345".to_string(),
+        };
+        let json_body = serde_json::to_string(&auth_request).unwrap();
+        let request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/auth/confirm")
+            .header("Content-Type", "application/json")
+            .body(Body::from(json_body))
+            .unwrap();
+
+        let app = app(Arc::new(mock_service)).await;
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        assert_eq!(body, "Authentication failed")
+    }
+}
 
