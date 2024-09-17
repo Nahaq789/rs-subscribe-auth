@@ -163,6 +163,7 @@ impl<T: CognitoRepository> AuthService for AuthServiceImpl<T> {
 #[cfg(test)]
 mod test {
     use super::*;
+    use crate::exception::auth_exception::AuthException;
     use mockall::mock;
 
     mock! {
