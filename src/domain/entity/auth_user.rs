@@ -1,6 +1,6 @@
+use crate::domain::exception::auth_domain_exception::AuthDomainException;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use crate::domain::exception::auth_domain_exception::AuthDomainException;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthUser {
@@ -11,7 +11,12 @@ pub struct AuthUser {
 }
 
 impl AuthUser {
-    pub fn new(user_id: String, email: String, password: String, verify_code: String) -> Result<Self, AuthDomainException> {
+    pub fn new(
+        user_id: String,
+        email: String,
+        password: String,
+        verify_code: String,
+    ) -> Result<Self, AuthDomainException> {
         Ok(AuthUser {
             user_id,
             email: Self::set_email(email)?,
