@@ -6,7 +6,7 @@ use thiserror::Error;
 /// including issues with the authentication process itself, server-side problems,
 /// configuration errors, and user input validation failures.
 #[derive(Error, Debug)]
-pub enum AuthError {
+pub enum AuthException {
     /// Indicates that the authentication process has failed.
     ///
     /// This error is typically raised when the provided credentials (username/email and password)

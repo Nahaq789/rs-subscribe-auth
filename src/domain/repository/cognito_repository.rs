@@ -2,7 +2,7 @@ use axum::async_trait;
 
 use crate::{
     domain::entity::{auth_user::AuthUser, token::Token},
-    exception::auth_error::AuthError,
+    exception::auth_exception::AuthException,
 };
 
 /// CognitoRepository trait defines the interface for interacting with AWS Cognito
@@ -18,7 +18,7 @@ pub trait CognitoRepository: Send + Sync + 'static {
     /// # Returns
     ///
     /// Returns a Result containing a Token on success, or an AuthError on failure.
-    async fn authenticate_user(&self, auth: &AuthUser) -> Result<Token, AuthError>;
+    async fn authenticate_user(&self, auth: &AuthUser) -> Result<Token, AuthException>;
 
     /// Signs up a new user in AWS Cognito.
     ///
@@ -29,7 +29,7 @@ pub trait CognitoRepository: Send + Sync + 'static {
     /// # Returns
     ///
     /// Returns a Result containing a void on success, or an AuthError on failure.
-    async fn signup_user(&self, auth: &AuthUser) -> Result<(), AuthError>;
+    async fn signup_user(&self, auth: &AuthUser) -> Result<(), AuthException>;
 
     /// Confirms a user's signup using a confirmation code.
     ///
@@ -40,5 +40,5 @@ pub trait CognitoRepository: Send + Sync + 'static {
     /// # Returns
     ///
     /// Returns a Result containing a void on success, or an AuthError on failure.
-    async fn confirm_code(&self, auth: &AuthUser) -> Result<(), AuthError>;
+    async fn confirm_code(&self, auth: &AuthUser) -> Result<(), AuthException>;
 }

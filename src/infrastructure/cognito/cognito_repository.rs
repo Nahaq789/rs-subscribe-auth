@@ -11,7 +11,7 @@ use crate::{
         entity::{auth_user::AuthUser, token::Token},
         repository::cognito_repository::CognitoRepository,
     },
-    exception::auth_error::AuthError,
+    exception::auth_exception::AuthException,
 };
 
 /// Implements the CognitoRepository trait using AWS SDK for Cognito.
@@ -67,12 +67,12 @@ impl CognitoRepository for CognitoRepositoryImpl {
     /// - `AuthError::ConfigurationError` if there's an issue with the AWS configuration.
     /// - `AuthError::AuthenticationFailed` if Cognito rejects the authentication attempt.
     /// - `AuthError::TokenMissing` if the expected tokens are not present in Cognito's response.
-    async fn authenticate_user(&self, auth: &AuthUser) -> Result<Token, AuthError> {
+    async fn authenticate_user(&self, auth: &AuthUser) -> Result<Token, AuthException> {
         let cognito = self
             .cognito
             .get_aws_config()
             .await
-            .map_err(|_| AuthError::ConfigurationError)?;
+            .map_err(|_| AuthException::ConfigurationError)?;
 
         let secret_hash = CognitoClient::client_secret_hash(
             &auth.email,
@@ -92,19 +92,19 @@ impl CognitoRepository for CognitoRepositoryImpl {
             .await
             .map_err(|e| {
                 log::error!("Authentication failed: {:?}", e);
-                AuthError::AuthenticationFailed
+                AuthException::AuthenticationFailed
             })?;
 
         let authenticate_result = authentication.authentication_result().ok_or_else(|| {
             log::error!("No authentication result in response");
-            AuthError::AuthenticationFailed
+            AuthException::AuthenticationFailed
         })?;
 
         let jwt = authenticate_result
             .access_token()
             .ok_or_else(|| {
                 log::error!("Access token missing from authentication result");
-                AuthError::TokenMissing
+                AuthException::TokenMissing
             })?
             .to_string();
 
@@ -112,7 +112,7 @@ impl CognitoRepository for CognitoRepositoryImpl {
             .refresh_token()
             .ok_or_else(|| {
                 log::error!("Refresh token missing from authentication result");
-                AuthError::TokenMissing
+                AuthException::TokenMissing
             })?
             .to_string();
 
@@ -144,12 +144,12 @@ impl CognitoRepository for CognitoRepositoryImpl {
     /// - `AuthError::UserAlreadyExists` if a user with the given email already exists.
     /// - `AuthError::InvalidPassword` if the provided password doesn't meet Cognito's requirements.
     /// - `AuthError::InternalServerError` for other types of errors, including AWS SDK errors.
-    async fn signup_user(&self, auth: &AuthUser) -> Result<(), AuthError> {
+    async fn signup_user(&self, auth: &AuthUser) -> Result<(), AuthException> {
         let cognito = self
             .cognito
             .get_aws_config()
             .await
-            .map_err(|_| AuthError::ConfigurationError)?;
+            .map_err(|_| AuthException::ConfigurationError)?;
 
         let email_attribute = AttributeType::builder()
             .name("email")
@@ -157,7 +157,10 @@ impl CognitoRepository for CognitoRepositoryImpl {
             .build()
             .map_err(|e| {
                 log::error!("Failed to build email attribute: {:?}", e);
-                AuthError::InternalServerError(format!("Failed to build email attribute: {:?}", e))
+                AuthException::InternalServerError(format!(
+                    "Failed to build email attribute: {:?}",
+                    e
+                ))
             })?;
 
         let secret_hash = CognitoClient::client_secret_hash(
@@ -180,14 +183,14 @@ impl CognitoRepository for CognitoRepositoryImpl {
                 log::error!("Signup error: {:?}", e);
                 match e {
                     SdkError::ServiceError(service_error) => match service_error.err() {
-                        SignUpError::UsernameExistsException(_) => AuthError::UserAlreadyExists,
-                        SignUpError::InvalidPasswordException(_) => AuthError::InvalidPassword,
-                        _ => AuthError::InternalServerError(format!(
+                        SignUpError::UsernameExistsException(_) => AuthException::UserAlreadyExists,
+                        SignUpError::InvalidPasswordException(_) => AuthException::InvalidPassword,
+                        _ => AuthException::InternalServerError(format!(
                             "Unhandled Cognito error: {:?}",
                             service_error
                         )),
                     },
-                    _ => AuthError::InternalServerError(format!("AWS SDK error: {:?}", e)),
+                    _ => AuthException::InternalServerError(format!("AWS SDK error: {:?}", e)),
                 }
             });
         Ok(())
@@ -213,12 +216,12 @@ impl CognitoRepository for CognitoRepositoryImpl {
     /// This method can return various `AuthError` variants, including:
     /// - `AuthError::ConfigurationError` if there's an issue with the AWS configuration.
     /// - `AuthError::AuthenticationFailed` if the verification code is invalid or expired.
-    async fn confirm_code(&self, auth: &AuthUser) -> Result<(), AuthError> {
+    async fn confirm_code(&self, auth: &AuthUser) -> Result<(), AuthException> {
         let cognito = self
             .cognito
             .get_aws_config()
             .await
-            .map_err(|_| AuthError::ConfigurationError)?;
+            .map_err(|_| AuthException::ConfigurationError)?;
 
         let secret_hash = CognitoClient::client_secret_hash(
             &auth.email,
@@ -237,7 +240,7 @@ impl CognitoRepository for CognitoRepositoryImpl {
             .await
             .map_err(|e| {
                 log::error!("Verify Confirm error: {:?}", e);
-                AuthError::AuthenticationFailed
+                AuthException::AuthenticationFailed
             })?;
 
         Ok(())
