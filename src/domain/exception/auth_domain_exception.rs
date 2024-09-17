@@ -6,5 +6,5 @@ pub enum AuthDomainException {
     ValidateFailed,
 
     #[error("Regex Compile Failed")]
-    RegexCompilationFailed
+    RegexCompilationFailed,
 }
