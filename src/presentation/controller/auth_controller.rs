@@ -406,7 +406,6 @@ mod tests {
         assert_eq!(response.status(), StatusCode::BAD_REQUEST);
 
         let body = response.into_body().collect().await.unwrap().to_bytes();
-        println!("{:?}", body);
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(body["message"], "Validate Error")
     }

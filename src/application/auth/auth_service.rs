@@ -228,6 +228,7 @@ mod tests {
             .map_err(|_| AuthException::AuthenticationFailed);
 
         assert!(result.is_err());
+        assert!(matches!(result, Err(AuthException::AuthenticationFailed)))
     }
 
     #[tokio::test]
@@ -277,6 +278,7 @@ mod tests {
             .map_err(|_| AuthException::AuthenticationFailed);
 
         assert!(result.is_err());
+        assert!(matches!(result, Err(AuthException::AuthenticationFailed)))
     }
 
     #[tokio::test]
@@ -329,5 +331,6 @@ mod tests {
             .map_err(|_| AuthException::AuthenticationFailed);
 
         assert!(result.is_err());
+        assert!(matches!(result, Err(AuthException::AuthenticationFailed)))
     }
 }
