@@ -161,7 +161,7 @@ impl<T: CognitoRepository> AuthService for AuthServiceImpl<T> {
 // ===== TEST SECTION START =====
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::exception::auth_exception::AuthException;
     use mockall::mock;
@@ -181,7 +181,7 @@ mod test {
         mock_repo
             .expect_authenticate_user()
             .with(mockall::predicate::function(|auth: &AuthUser| {
-                auth.email == "test@example.com" && auth.password == "password123"
+                auth.email == "test@example.com" && auth.password == "Password123"
             }))
             .times(1)
             .returning(|_| {
@@ -195,7 +195,7 @@ mod test {
 
         let auth_request = AuthRequest {
             email: "test@example.com".to_string(),
-            password: "password123".to_string(),
+            password: "Password123".to_string(),
             verify_code: "".to_string(),
         };
 
@@ -212,13 +212,13 @@ mod test {
         mock_repo
             .expect_authenticate_user()
             .with(mockall::predicate::function(|auth: &AuthUser| {
-                auth.email == "test@example.com" && auth.password == "password123"
+                auth.email == "test@example.com" && auth.password == "Password123"
             }))
             .times(1)
             .returning(|_| Err(AuthException::AuthenticationFailed));
         let auth_request = AuthRequest {
             email: "test@example.com".to_string(),
-            password: "password123".to_string(),
+            password: "Password123".to_string(),
             verify_code: "".to_string(),
         };
         let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
@@ -237,14 +237,14 @@ mod test {
         mock_repo
             .expect_signup_user()
             .with(mockall::predicate::function(|auth: &AuthUser| {
-                auth.email == "test@example.com" && auth.password == "password123"
+                auth.email == "test@example.com" && auth.password == "Password123"
             }))
             .times(1)
             .returning(move |_| Ok(()));
 
         let auth_request = AuthRequest {
             email: "test@example.com".to_string(),
-            password: "password123".to_string(),
+            password: "Password123".to_string(),
             verify_code: "".to_string(),
         };
 
@@ -259,14 +259,14 @@ mod test {
         mock_repo
             .expect_signup_user()
             .with(mockall::predicate::function(|auth: &AuthUser| {
-                auth.email == "test@example.com" && auth.password == "password123"
+                auth.email == "test@example.com" && auth.password == "Password123"
             }))
             .times(1)
             .returning(|_| Err(AuthException::AuthenticationFailed));
 
         let auth_request = AuthRequest {
             email: "test@example.com".to_string(),
-            password: "password123".to_string(),
+            password: "Password123".to_string(),
             verify_code: "".to_string(),
         };
 
@@ -285,14 +285,14 @@ mod test {
         mock_repo
             .expect_confirm_code()
             .with(mockall::predicate::function(|auth: &AuthUser| {
-                auth.email == "test@example.com" && auth.password == "password123"
+                auth.email == "test@example.com" && auth.password == "Password123"
             }))
             .times(1)
             .returning(|_| Ok(()));
 
         let auth_request = AuthRequest {
             email: "test@example.com".to_string(),
-            password: "password123".to_string(),
+            password: "Password123".to_string(),
             verify_code: "123456".to_string(),
         };
 
@@ -311,14 +311,14 @@ mod test {
         mock_repo
             .expect_confirm_code()
             .with(mockall::predicate::function(|auth: &AuthUser| {
-                auth.email == "test@example.com" && auth.password == "password123"
+                auth.email == "test@example.com" && auth.password == "Password123"
             }))
             .times(1)
             .returning(|_| Err(AuthException::AuthenticationFailed));
 
         let auth_request = AuthRequest {
             email: "test@example.com".to_string(),
-            password: "password123".to_string(),
+            password: "Password123".to_string(),
             verify_code: "123456".to_string(),
         };
 

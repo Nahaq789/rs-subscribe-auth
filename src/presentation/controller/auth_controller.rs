@@ -91,7 +91,7 @@ pub async fn confirm_code(
 
 // ===== TEST SECTION START =====
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::application::auth::auth_service::AuthService;
     use crate::domain::entity::token::Token;
