@@ -23,7 +23,9 @@ This README explains how to set up debugging for this Rust project using Visual 
       "request": "launch",
       "name": "Debug executable",
       "cargo": {
-        "args": ["build"],
+        "args": [
+          "build"
+        ],
         "filter": {
           "kind": "bin"
         }
@@ -41,8 +43,8 @@ This README explains how to set up debugging for this Rust project using Visual 
 - `request`: "launch" means starting a new process for debugging.
 - `name`: The name of the debug configuration, displayed in VSCode's debug view.
 - `cargo`: Configuration for the Cargo command.
-  - `args`: Arguments passed to Cargo. Here, we use the `build` command.
-  - `filter`: Limits the build to "bin" (executable files).
+    - `args`: Arguments passed to Cargo. Here, we use the `build` command.
+    - `filter`: Limits the build to "bin" (executable files).
 - `args`: Arguments passed to the program. Add as needed.
 - `cwd`: The working directory for the program. `${workspaceFolder}` refers to the project's root directory.
 
@@ -54,7 +56,8 @@ This README explains how to set up debugging for this Rust project using Visual 
 4. Press F5 or click the debug icon in the sidebar to start debugging.
 5. Select the "Debug executable" configuration.
 
-Now, the program will stop at breakpoints, allowing you to inspect variables, step through code, and perform other debugging tasks.
+Now, the program will stop at breakpoints, allowing you to inspect variables, step through code, and perform other
+debugging tasks.
 
 ## Notes
 
@@ -67,6 +70,7 @@ Now, the program will stop at breakpoints, allowing you to inspect variables, st
 <br/>
 
 # Deploying to ECR
+
 Follow these steps to push the Docker image of this project to Amazon Elastic Container Registry (ECR).
 
 ### Prerequisites
@@ -101,11 +105,41 @@ Follow these steps to push the Docker image of this project to Amazon Elastic Co
     docker push <your-account-id>.dkr.ecr.<your-region>.amazonaws.com/<your-repository-name>:latest
     ```
 
-Note: Replace `<your-account-id>`, `<your-region>`, and `<your-repository-name>` with appropriate values in the above commands.
+Note: Replace `<your-account-id>`, `<your-region>`, and `<your-repository-name>` with appropriate values in the above
+commands.
 
 ### Security Considerations
 
-- Do not include specific information such as AWS account IDs, regions, or repository names in README files of public repositories.
+- Do not include specific information such as AWS account IDs, regions, or repository names in README files of public
+  repositories.
 - Never commit AWS credentials to version control systems.
 
-For more details, refer to the [Amazon ECR documentation](https://docs.aws.amazon.com/AmazonECR/latest/userguide/what-is-ecr.html).
+For more details, refer to
+the [Amazon ECR documentation](https://docs.aws.amazon.com/AmazonECR/latest/userguide/what-is-ecr.html).
+
+# Run Test, Check format and Clippy
+
+You have to check this section before when you push to origin branch.
+
+### Steps
+
+1. Run Test
+
+    ```sh
+    cargo test --package rs-subscribe-auth --lib
+    ```
+
+2. Check Clippy
+
+    ```sh
+    cargo clippy
+    ```
+
+3. Check format
+
+    ```sh
+    cargo fmt -- --check
+   
+   //if you need
+   cargo fmt
+    ```
