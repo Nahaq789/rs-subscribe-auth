@@ -29,7 +29,7 @@ impl IntoResponse for ApplicationException {
             }
             _ => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
         };
-        let body = Json(ErrorResponse::new(status, error_message));
+        let body = Json(ErrorResponse::new(status, &error_message));
         (status, body).into_response()
     }
 }

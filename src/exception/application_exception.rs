@@ -10,3 +10,18 @@ pub enum ApplicationException {
     #[error(transparent)]
     AuthError(#[from] AuthException),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_application_exception_auth_domain_error() {
+        assert_eq!(ApplicationException::AuthDomainError(AuthDomainException::ValidateFailed).to_string(), "Validate Error")
+    }
+
+    #[test]
+    fn test_application_exception_auth_error() {
+        assert_eq!(ApplicationException::AuthError(AuthException::AuthenticationFailed).to_string(), "Authentication failed")
+    }
+}
