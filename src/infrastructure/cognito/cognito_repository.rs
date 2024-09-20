@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use aws_sdk_cognitoidentityprovider::error::ProvideErrorMetadata;
 use aws_sdk_cognitoidentityprovider::{
     error::SdkError, operation::sign_up::SignUpError, types::AttributeType,
 };
@@ -40,6 +41,10 @@ impl CognitoRepositoryImpl {
     pub fn new(cognito: Arc<dyn AwsProvider<CognitoClient>>) -> Self {
         CognitoRepositoryImpl { cognito }
     }
+
+    fn generate_secret_hash(email: &str, client_id: &str, client_secret: &str) -> String {
+        CognitoClient::client_secret_hash(email, client_id, client_secret)
+    }
 }
 
 #[async_trait]
@@ -74,11 +79,8 @@ impl CognitoRepository for CognitoRepositoryImpl {
             .await
             .map_err(|_| AuthException::ConfigurationError)?;
 
-        let secret_hash = CognitoClient::client_secret_hash(
-            &auth.email,
-            &cognito.client_id,
-            &cognito.client_secret,
-        );
+        let secret_hash =
+            Self::generate_secret_hash(&auth.email, &cognito.client_id, &cognito.client_secret);
 
         let authentication = cognito
             .client
@@ -92,12 +94,12 @@ impl CognitoRepository for CognitoRepositoryImpl {
             .await
             .map_err(|e| {
                 log::error!("Authentication failed: {:?}", e);
-                AuthException::AuthenticationFailed
+                AuthException::AuthenticationFailed(e.message().unwrap_or_default().to_string())
             })?;
 
         let authenticate_result = authentication.authentication_result().ok_or_else(|| {
             log::error!("No authentication result in response");
-            AuthException::AuthenticationFailed
+            AuthException::AuthenticationFailed("No authentication result in response".to_string())
         })?;
 
         let jwt = authenticate_result
@@ -163,13 +165,10 @@ impl CognitoRepository for CognitoRepositoryImpl {
                 ))
             })?;
 
-        let secret_hash = CognitoClient::client_secret_hash(
-            &auth.email,
-            &cognito.client_id,
-            &cognito.client_secret,
-        );
+        let secret_hash =
+            Self::generate_secret_hash(&auth.email, &cognito.client_id, &cognito.client_secret);
 
-        let _ = cognito
+        cognito
             .client
             .sign_up()
             .client_id(&cognito.client_id)
@@ -192,7 +191,7 @@ impl CognitoRepository for CognitoRepositoryImpl {
                     },
                     _ => AuthException::InternalServerError(format!("AWS SDK error: {:?}", e)),
                 }
-            });
+            })?;
         Ok(())
     }
 
@@ -223,11 +222,8 @@ impl CognitoRepository for CognitoRepositoryImpl {
             .await
             .map_err(|_| AuthException::ConfigurationError)?;
 
-        let secret_hash = CognitoClient::client_secret_hash(
-            &auth.email,
-            &cognito.client_id,
-            &cognito.client_secret,
-        );
+        let secret_hash =
+            Self::generate_secret_hash(&auth.email, &cognito.client_id, &cognito.client_secret);
 
         cognito
             .client
@@ -240,7 +236,7 @@ impl CognitoRepository for CognitoRepositoryImpl {
             .await
             .map_err(|e| {
                 log::error!("Verify Confirm error: {:?}", e);
-                AuthException::AuthenticationFailed
+                AuthException::AuthenticationFailed(e.to_string())
             })?;
 
         Ok(())

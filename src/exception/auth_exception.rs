@@ -18,8 +18,8 @@ pub enum AuthException {
     /// - Incorrect password provided for an existing username
     /// - Non-existent username/email used for login attempt
     /// - Authentication service temporary failure
-    #[error("Authentication failed")]
-    AuthenticationFailed,
+    #[error("Authentication failed: {0}")]
+    AuthenticationFailed(String),
 
     /// Represents an internal server error with additional context.
     ///
@@ -92,17 +92,26 @@ mod tests {
 
     #[test]
     fn test_auth_exception_authentication_failed() {
-        assert_eq!(AuthException::AuthenticationFailed.to_string(), "Authentication failed")
+        assert_eq!(
+            AuthException::AuthenticationFailed("hoge".to_string()).to_string(),
+            "Authentication failed: hoge"
+        )
     }
 
     #[test]
     fn test_auth_exception_internal_server_error() {
-        assert_eq!(AuthException::InternalServerError("hoge".to_string()).to_string(), "Internal Server Error: hoge")
+        assert_eq!(
+            AuthException::InternalServerError("hoge".to_string()).to_string(),
+            "Internal Server Error: hoge"
+        )
     }
 
     #[test]
     fn test_auth_exception_configuration_error() {
-        assert_eq!(AuthException::ConfigurationError.to_string(), "Configuration Error")
+        assert_eq!(
+            AuthException::ConfigurationError.to_string(),
+            "Configuration Error"
+        )
     }
 
     #[test]
@@ -112,11 +121,17 @@ mod tests {
 
     #[test]
     fn test_auth_exception_user_already_exists() {
-        assert_eq!(AuthException::UserAlreadyExists.to_string(), "User already exists: An account with this email address is already registered")
+        assert_eq!(
+            AuthException::UserAlreadyExists.to_string(),
+            "User already exists: An account with this email address is already registered"
+        )
     }
 
     #[test]
     fn test_auth_exception_invalid_password() {
-        assert_eq!(AuthException::InvalidPassword.to_string(), "Invalid password: Password does not meet the required criteria")
+        assert_eq!(
+            AuthException::InvalidPassword.to_string(),
+            "Invalid password: Password does not meet the required criteria"
+        )
     }
 }

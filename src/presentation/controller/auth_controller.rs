@@ -18,7 +18,7 @@ use serde_json::json;
 impl IntoResponse for ApplicationException {
     fn into_response(self) -> Response {
         let (status, error_message) = match self {
-            ApplicationException::AuthError(AuthException::AuthenticationFailed) => {
+            ApplicationException::AuthError(AuthException::AuthenticationFailed(..)) => {
                 (StatusCode::UNAUTHORIZED, self.to_string())
             }
             ApplicationException::AuthError(AuthException::TokenMissing) => {
@@ -184,7 +184,7 @@ mod tests {
             }))
             .returning(|_| {
                 Err(ApplicationException::AuthError(
-                    AuthException::AuthenticationFailed,
+                    AuthException::AuthenticationFailed("hoge".to_string()),
                 ))
             });
 
@@ -212,7 +212,7 @@ mod tests {
 
         assert_eq!(
             body["message"],
-            AuthException::AuthenticationFailed.to_string()
+            AuthException::AuthenticationFailed("hoge".to_string()).to_string()
         )
     }
 
@@ -343,7 +343,7 @@ mod tests {
             .times(1)
             .returning(|_| {
                 Err(ApplicationException::AuthError(
-                    AuthException::AuthenticationFailed,
+                    AuthException::AuthenticationFailed(String::from("hoge")),
                 ))
             });
 
@@ -367,7 +367,7 @@ mod tests {
 
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body: Value = serde_json::from_slice(&body).unwrap();
-        assert_eq!(body["message"], "Authentication failed")
+        assert_eq!(body["message"], "Authentication failed: hoge")
     }
 
     #[tokio::test]

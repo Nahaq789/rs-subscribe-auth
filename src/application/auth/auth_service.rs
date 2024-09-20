@@ -116,7 +116,7 @@ impl<T: CognitoRepository> AuthService for AuthServiceImpl<T> {
     ///
     /// Returns a `Result` containing a `Token` on success, or an `AuthError` on failure.
     async fn authenticate_user(&self, auth: AuthRequest) -> Result<Token, ApplicationException> {
-        let user = AuthUser::new("".to_string(), auth.email, auth.password, "".to_string())?;
+        let user = AuthUser::new("", &auth.email, &auth.password, "")?;
         let result = self.cognito_repository.authenticate_user(&user).await?;
         Ok(result)
     }
@@ -134,7 +134,7 @@ impl<T: CognitoRepository> AuthService for AuthServiceImpl<T> {
     ///
     /// Returns a `Result` containing a `()` on success, or an `AuthError` on failure.
     async fn signup_user(&self, auth: AuthRequest) -> Result<(), ApplicationException> {
-        let user = AuthUser::new("".to_string(), auth.email, auth.password, "".to_string())?;
+        let user = AuthUser::new("", &auth.email, &auth.password, "123455")?;
         self.cognito_repository.signup_user(&user).await?;
         Ok(())
     }
@@ -152,7 +152,7 @@ impl<T: CognitoRepository> AuthService for AuthServiceImpl<T> {
     ///
     /// Returns a `Result` containing a `()` on success, or an `AuthError` on failure.
     async fn confirm_code(&self, auth: AuthRequest) -> Result<(), ApplicationException> {
-        let user = AuthUser::new("".to_string(), auth.email, auth.password, auth.verify_code)?;
+        let user = AuthUser::new("", &auth.email, &auth.password, &auth.verify_code)?;
         self.cognito_repository.confirm_code(&user).await?;
         Ok(())
     }
@@ -215,7 +215,7 @@ mod tests {
                 auth.email == "test@example.com" && auth.password == "Password123"
             }))
             .times(1)
-            .returning(|_| Err(AuthException::AuthenticationFailed));
+            .returning(|_| Err(AuthException::AuthenticationFailed(String::from("hoge"))));
         let auth_request = AuthRequest {
             email: "test@example.com".to_string(),
             password: "Password123".to_string(),
@@ -225,10 +225,13 @@ mod tests {
         let result = auth_service
             .authenticate_user(auth_request)
             .await
-            .map_err(|_| AuthException::AuthenticationFailed);
+            .map_err(|_| AuthException::AuthenticationFailed("hoge".to_string()));
 
         assert!(result.is_err());
-        assert!(matches!(result, Err(AuthException::AuthenticationFailed)))
+        assert!(matches!(
+            result,
+            Err(AuthException::AuthenticationFailed(..))
+        ))
     }
 
     #[tokio::test]
@@ -263,7 +266,7 @@ mod tests {
                 auth.email == "test@example.com" && auth.password == "Password123"
             }))
             .times(1)
-            .returning(|_| Err(AuthException::AuthenticationFailed));
+            .returning(|_| Err(AuthException::AuthenticationFailed("hoge".to_string())));
 
         let auth_request = AuthRequest {
             email: "test@example.com".to_string(),
@@ -275,10 +278,13 @@ mod tests {
         let result = auth_service
             .signup_user(auth_request)
             .await
-            .map_err(|_| AuthException::AuthenticationFailed);
+            .map_err(|_| AuthException::AuthenticationFailed("hoge".to_string()));
 
         assert!(result.is_err());
-        assert!(matches!(result, Err(AuthException::AuthenticationFailed)))
+        assert!(matches!(
+            result,
+            Err(AuthException::AuthenticationFailed(..))
+        ))
     }
 
     #[tokio::test]
@@ -302,7 +308,7 @@ mod tests {
         let result = auth_service
             .confirm_code(auth_request)
             .await
-            .map_err(|_| AuthException::AuthenticationFailed);
+            .map_err(|_| AuthException::AuthenticationFailed("hoge".to_string()));
 
         assert!(result.is_ok());
     }
@@ -316,7 +322,7 @@ mod tests {
                 auth.email == "test@example.com" && auth.password == "Password123"
             }))
             .times(1)
-            .returning(|_| Err(AuthException::AuthenticationFailed));
+            .returning(|_| Err(AuthException::AuthenticationFailed("hoge".to_string())));
 
         let auth_request = AuthRequest {
             email: "test@example.com".to_string(),
@@ -328,9 +334,12 @@ mod tests {
         let result = auth_service
             .confirm_code(auth_request)
             .await
-            .map_err(|_| AuthException::AuthenticationFailed);
+            .map_err(|_| AuthException::AuthenticationFailed("hoge".to_string()));
 
         assert!(result.is_err());
-        assert!(matches!(result, Err(AuthException::AuthenticationFailed)))
+        assert!(matches!(
+            result,
+            Err(AuthException::AuthenticationFailed(..))
+        ))
     }
 }

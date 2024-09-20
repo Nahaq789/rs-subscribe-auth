@@ -27,16 +27,16 @@ impl AuthUser {
     /// - `Ok(AuthUser)` containing the new AuthUser instance if successful.
     /// - `Err(AuthDomainException)` if validation fails for email or password.
     pub fn new(
-        user_id: String,
-        email: String,
-        password: String,
-        verify_code: String,
+        user_id: &str,
+        email: &str,
+        password: &str,
+        verify_code: &str,
     ) -> Result<Self, AuthDomainException> {
         Ok(AuthUser {
-            user_id,
+            user_id: user_id.into(),
             email: Self::set_email(email)?,
             password: Self::set_password(password)?,
-            verify_code,
+            verify_code: verify_code.into(),
         })
     }
 
@@ -51,11 +51,11 @@ impl AuthUser {
     /// Returns a `Result` which is either:
     /// - `Ok(String)` containing the validated email if successful.
     /// - `Err(AuthDomainException)` if the email is invalid.
-    fn set_email(email: String) -> Result<String, AuthDomainException> {
+    fn set_email(email: &str) -> Result<String, AuthDomainException> {
         let regex = Regex::new(r"^[a-z0-9]([a-z0-9._%+-]{0,61}[a-z0-9])?@[a-z0-9-]{1,63}(\.[a-z0-9-]{1,63})*\.[a-z]{2,6}$")
             .map_err(|_| AuthDomainException::RegexCompilationFailed)?;
-        if regex.is_match(&email) {
-            Ok(email)
+        if regex.is_match(email) {
+            Ok(email.into())
         } else {
             Err(AuthDomainException::ValidateFailed)
         }
@@ -72,7 +72,7 @@ impl AuthUser {
     /// Returns a `Result` which is either:
     /// - `Ok(String)` containing the validated password if successful.
     /// - `Err(AuthDomainException)` if the password is invalid.
-    fn set_password(password: String) -> Result<String, AuthDomainException> {
+    fn set_password(password: &str) -> Result<String, AuthDomainException> {
         if password.len() <= 6 {
             return Err(AuthDomainException::ValidateFailed);
         }
@@ -81,7 +81,7 @@ impl AuthUser {
         let has_uppercase = password.chars().any(|c| c.is_ascii_uppercase());
 
         if has_lowercase && has_uppercase {
-            Ok(password)
+            Ok(password.into())
         } else {
             Err(AuthDomainException::ValidateFailed)
         }
@@ -95,13 +95,7 @@ mod tests {
 
     #[rstest]
     fn test_auth_user_create_success() {
-        let result = AuthUser::new(
-            "123".to_string(),
-            "hoge@emial.com".to_string(),
-            "Hoge12345!!".to_string(),
-            "hogehoge".to_string(),
-        )
-            .unwrap();
+        let result = AuthUser::new("123", "hoge@emial.com", "Hoge12345!!", "hogehoge").unwrap();
 
         assert_eq!(result.user_id, "123".to_string());
         assert_eq!(result.email, "hoge@emial.com".to_string());
@@ -121,7 +115,7 @@ mod tests {
     #[case("example-indeed@strange-example.com")]
     #[case("user%example.com@example.org")]
     fn test_set_email_validate_success(#[case] email: String) {
-        let result = AuthUser::set_email(email.clone());
+        let result = AuthUser::set_email(&email);
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), email)
@@ -140,7 +134,7 @@ mod tests {
     #[case("username@domain.c")]
     #[case("username@domain.toolong")]
     fn test_set_email_validate_failed(#[case] email: String) {
-        let result = AuthUser::set_email(email.clone());
+        let result = AuthUser::set_email(&email);
 
         assert!(result.is_err());
         assert!(matches!(result, Err(AuthDomainException::ValidateFailed)))
@@ -162,7 +156,7 @@ mod tests {
     #[case("Aa1!Bb2@Cc3#Dd4$")]
     #[case("ThIs1sAV3ryL0ngAndC0mpl3xP@ssw0rd")]
     fn test_set_password_validate_success(#[case] password: String) {
-        let result = AuthUser::set_password(password.clone());
+        let result = AuthUser::set_password(&password);
 
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), password)
@@ -189,7 +183,7 @@ mod tests {
     #[case("abc123")]
     #[case("ABC123")]
     fn test_set_password_validate_failed(#[case] password: String) {
-        let result = AuthUser::set_password(password.clone());
+        let result = AuthUser::set_password(&password);
 
         assert!(result.is_err());
         assert!(matches!(result, Err(AuthDomainException::ValidateFailed)))

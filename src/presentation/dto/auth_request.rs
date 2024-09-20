@@ -8,19 +8,19 @@ pub struct AuthRequest {
 }
 
 impl AuthRequest {
-    pub fn new(email: &String, password: &String, verify_code: &String) -> Self {
+    pub fn new(email: &str, password: &str, verify_code: &str) -> Self {
         AuthRequest {
-            email: email.to_string(),
-            password: password.to_string(),
-            verify_code: verify_code.to_string(),
+            email: email.into(),
+            password: password.into(),
+            verify_code: verify_code.into(),
         }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use serde_json::json;
     use super::*;
+    use serde_json::json;
 
     #[test]
     fn test_auth_request_create_success() {
