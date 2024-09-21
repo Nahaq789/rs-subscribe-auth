@@ -2,12 +2,12 @@ use std::sync::Arc;
 
 use axum::async_trait;
 
+use crate::exception::application_exception::ApplicationException;
 use crate::{
     domain::{
         entity::{auth_user::AuthUser, token::Token},
         repository::cognito_repository::CognitoRepository,
     },
-    exception::auth_error::AuthError,
     presentation::dto::auth_request::AuthRequest,
 };
 
@@ -38,7 +38,7 @@ pub trait AuthService: Send + Sync {
     /// Returns a `Result` which is either:
     /// - `Ok(Token)` containing the authentication tokens if successful.
     /// - `Err(AuthError)` if authentication fails for any reason.
-    async fn authenticate_user(&self, auth: AuthRequest) -> Result<Token, AuthError>;
+    async fn authenticate_user(&self, auth: AuthRequest) -> Result<Token, ApplicationException>;
 
     /// Registers a new user with the authentication service.
     ///
@@ -54,7 +54,7 @@ pub trait AuthService: Send + Sync {
     /// Returns a `Result` which is either:
     /// - `Ok(SignUpOutput)` containing the signup result if successful.
     /// - `Err(AuthError)` if signup fails for any reason (e.g., user already exists).
-    async fn signup_user(&self, auth: AuthRequest) -> Result<(), AuthError>;
+    async fn signup_user(&self, auth: AuthRequest) -> Result<(), ApplicationException>;
 
     /// Confirms a user's signup using a verification code.
     ///
@@ -70,7 +70,7 @@ pub trait AuthService: Send + Sync {
     /// Returns a `Result` which is either:
     /// - `Ok(ConfirmSignUpOutput)` if the confirmation is successful.
     /// - `Err(AuthError)` if the confirmation fails for any reason.
-    async fn confirm_code(&self, auth: AuthRequest) -> Result<(), AuthError>;
+    async fn confirm_code(&self, auth: AuthRequest) -> Result<(), ApplicationException>;
 }
 
 /// Implements the AuthService trait using AWS Cognito as the authentication backend.
@@ -115,8 +115,8 @@ impl<T: CognitoRepository> AuthService for AuthServiceImpl<T> {
     /// # Returns
     ///
     /// Returns a `Result` containing a `Token` on success, or an `AuthError` on failure.
-    async fn authenticate_user(&self, auth: AuthRequest) -> Result<Token, AuthError> {
-        let user = AuthUser::new("".to_string(), auth.email, auth.password, "".to_string());
+    async fn authenticate_user(&self, auth: AuthRequest) -> Result<Token, ApplicationException> {
+        let user = AuthUser::new("", &auth.email, &auth.password, "")?;
         let result = self.cognito_repository.authenticate_user(&user).await?;
         Ok(result)
     }
@@ -133,8 +133,8 @@ impl<T: CognitoRepository> AuthService for AuthServiceImpl<T> {
     /// # Returns
     ///
     /// Returns a `Result` containing a `()` on success, or an `AuthError` on failure.
-    async fn signup_user(&self, auth: AuthRequest) -> Result<(), AuthError> {
-        let user = AuthUser::new("".to_string(), auth.email, auth.password, "".to_string());
+    async fn signup_user(&self, auth: AuthRequest) -> Result<(), ApplicationException> {
+        let user = AuthUser::new("", &auth.email, &auth.password, "123455")?;
         self.cognito_repository.signup_user(&user).await?;
         Ok(())
     }
@@ -151,8 +151,8 @@ impl<T: CognitoRepository> AuthService for AuthServiceImpl<T> {
     /// # Returns
     ///
     /// Returns a `Result` containing a `()` on success, or an `AuthError` on failure.
-    async fn confirm_code(&self, auth: AuthRequest) -> Result<(), AuthError> {
-        let user = AuthUser::new("".to_string(), auth.email, auth.password, auth.verify_code);
+    async fn confirm_code(&self, auth: AuthRequest) -> Result<(), ApplicationException> {
+        let user = AuthUser::new("", &auth.email, &auth.password, &auth.verify_code)?;
         self.cognito_repository.confirm_code(&user).await?;
         Ok(())
     }
@@ -161,17 +161,18 @@ impl<T: CognitoRepository> AuthService for AuthServiceImpl<T> {
 // ===== TEST SECTION START =====
 
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
+    use crate::exception::auth_exception::AuthException;
     use mockall::mock;
 
     mock! {
         CognitoRepository {}
         #[async_trait]
         impl CognitoRepository for CognitoRepository {
-            async fn authenticate_user(&self, auth: &AuthUser) -> Result<Token, AuthError>;
-            async fn signup_user(&self, auth: &AuthUser) -> Result<(), AuthError>;
-            async fn confirm_code(&self, auth: &AuthUser) -> Result<(), AuthError>;
+            async fn authenticate_user(&self, auth: &AuthUser) -> Result<Token, AuthException>;
+            async fn signup_user(&self, auth: &AuthUser) -> Result<(), AuthException>;
+            async fn confirm_code(&self, auth: &AuthUser) -> Result<(), AuthException>;
         }
     }
     #[tokio::test]
@@ -180,7 +181,7 @@ mod test {
         mock_repo
             .expect_authenticate_user()
             .with(mockall::predicate::function(|auth: &AuthUser| {
-                auth.email == "test@example.com" && auth.password == "password123"
+                auth.email == "test@example.com" && auth.password == "Password123"
             }))
             .times(1)
             .returning(|_| {
@@ -194,7 +195,7 @@ mod test {
 
         let auth_request = AuthRequest {
             email: "test@example.com".to_string(),
-            password: "password123".to_string(),
+            password: "Password123".to_string(),
             verify_code: "".to_string(),
         };
 
@@ -211,22 +212,26 @@ mod test {
         mock_repo
             .expect_authenticate_user()
             .with(mockall::predicate::function(|auth: &AuthUser| {
-                auth.email == "test@example.com" && auth.password == "password123"
+                auth.email == "test@example.com" && auth.password == "Password123"
             }))
             .times(1)
-            .returning(|_| Err(AuthError::AuthenticationFailed));
+            .returning(|_| Err(AuthException::AuthenticationFailed(String::from("hoge"))));
         let auth_request = AuthRequest {
             email: "test@example.com".to_string(),
-            password: "password123".to_string(),
+            password: "Password123".to_string(),
             verify_code: "".to_string(),
         };
         let auth_service = AuthServiceImpl::new(Arc::new(mock_repo));
         let result = auth_service
             .authenticate_user(auth_request)
             .await
-            .map_err(|_| AuthError::AuthenticationFailed);
+            .map_err(|_| AuthException::AuthenticationFailed("hoge".to_string()));
 
         assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(AuthException::AuthenticationFailed(..))
+        ))
     }
 
     #[tokio::test]
@@ -236,14 +241,14 @@ mod test {
         mock_repo
             .expect_signup_user()
             .with(mockall::predicate::function(|auth: &AuthUser| {
-                auth.email == "test@example.com" && auth.password == "password123"
+                auth.email == "test@example.com" && auth.password == "Password123"
             }))
             .times(1)
             .returning(move |_| Ok(()));
 
         let auth_request = AuthRequest {
             email: "test@example.com".to_string(),
-            password: "password123".to_string(),
+            password: "Password123".to_string(),
             verify_code: "".to_string(),
         };
 
@@ -258,14 +263,14 @@ mod test {
         mock_repo
             .expect_signup_user()
             .with(mockall::predicate::function(|auth: &AuthUser| {
-                auth.email == "test@example.com" && auth.password == "password123"
+                auth.email == "test@example.com" && auth.password == "Password123"
             }))
             .times(1)
-            .returning(|_| Err(AuthError::AuthenticationFailed));
+            .returning(|_| Err(AuthException::AuthenticationFailed("hoge".to_string())));
 
         let auth_request = AuthRequest {
             email: "test@example.com".to_string(),
-            password: "password123".to_string(),
+            password: "Password123".to_string(),
             verify_code: "".to_string(),
         };
 
@@ -273,9 +278,13 @@ mod test {
         let result = auth_service
             .signup_user(auth_request)
             .await
-            .map_err(|_| AuthError::AuthenticationFailed);
+            .map_err(|_| AuthException::AuthenticationFailed("hoge".to_string()));
 
         assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(AuthException::AuthenticationFailed(..))
+        ))
     }
 
     #[tokio::test]
@@ -284,14 +293,14 @@ mod test {
         mock_repo
             .expect_confirm_code()
             .with(mockall::predicate::function(|auth: &AuthUser| {
-                auth.email == "test@example.com" && auth.password == "password123"
+                auth.email == "test@example.com" && auth.password == "Password123"
             }))
             .times(1)
             .returning(|_| Ok(()));
 
         let auth_request = AuthRequest {
             email: "test@example.com".to_string(),
-            password: "password123".to_string(),
+            password: "Password123".to_string(),
             verify_code: "123456".to_string(),
         };
 
@@ -299,7 +308,7 @@ mod test {
         let result = auth_service
             .confirm_code(auth_request)
             .await
-            .map_err(|_| AuthError::AuthenticationFailed);
+            .map_err(|_| AuthException::AuthenticationFailed("hoge".to_string()));
 
         assert!(result.is_ok());
     }
@@ -310,14 +319,14 @@ mod test {
         mock_repo
             .expect_confirm_code()
             .with(mockall::predicate::function(|auth: &AuthUser| {
-                auth.email == "test@example.com" && auth.password == "password123"
+                auth.email == "test@example.com" && auth.password == "Password123"
             }))
             .times(1)
-            .returning(|_| Err(AuthError::AuthenticationFailed));
+            .returning(|_| Err(AuthException::AuthenticationFailed("hoge".to_string())));
 
         let auth_request = AuthRequest {
             email: "test@example.com".to_string(),
-            password: "password123".to_string(),
+            password: "Password123".to_string(),
             verify_code: "123456".to_string(),
         };
 
@@ -325,8 +334,12 @@ mod test {
         let result = auth_service
             .confirm_code(auth_request)
             .await
-            .map_err(|_| AuthError::AuthenticationFailed);
+            .map_err(|_| AuthException::AuthenticationFailed("hoge".to_string()));
 
         assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(AuthException::AuthenticationFailed(..))
+        ))
     }
 }
