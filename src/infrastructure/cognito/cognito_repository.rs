@@ -242,3 +242,126 @@ impl CognitoRepository for CognitoRepositoryImpl {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use aws_config::meta::region::RegionProviderChain;
+    use aws_config::{BehaviorVersion, Region};
+    use aws_sdk_cognitoidentityprovider::Client;
+    use mockall::mock;
+    use crate::adapter::aws::provider::AwsConfigError;
+    use super::*;
+
+    mock! {
+        pub CognitoClient {}
+        #[async_trait]
+        impl AwsProvider<CognitoClient> for CognitoClient {
+            async fn get_aws_config(&self) -> Result<CognitoClient, AwsConfigError>;
+        }
+    }
+
+    #[tokio::test]
+    async fn test_authenticate_user_failed() {
+        let mut mock_client = MockCognitoClient::new();
+
+        let region = "hogehoge".to_string();
+        let region_provider = RegionProviderChain::first_try(Region::new(region));
+        let shared_config = aws_config::defaults(BehaviorVersion::latest())
+            .region(region_provider)
+            .load()
+            .await;
+
+        mock_client.expect_get_aws_config()
+            .returning(move || Ok(CognitoClient {
+                user_pool_id: "hoge_pool_id".to_string(),
+                client_id: "hoge_client_id".to_string(),
+                region: "hoge_region".to_string(),
+                client_secret: "hoge_secret".to_string(),
+                client: Client::new(&shared_config),
+            }));
+
+        let repo = CognitoRepositoryImpl::new(Arc::new(mock_client));
+        let auth_user = AuthUser {
+            user_id: "".to_string(),
+            email: "test@example.com".to_string(),
+            password: "Password123".to_string(),
+            verify_code: "".to_string(),
+        };
+        let result = repo.authenticate_user(&auth_user).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(AuthException::AuthenticationFailed(..))
+        ))
+    }
+
+    #[tokio::test]
+    async fn test_signup_user_failed() {
+        let mut mock_client = MockCognitoClient::new();
+
+        let region = "hogehoge".to_string();
+        let region_provider = RegionProviderChain::first_try(Region::new(region));
+        let shared_config = aws_config::defaults(BehaviorVersion::latest())
+            .region(region_provider)
+            .load()
+            .await;
+
+        mock_client.expect_get_aws_config()
+            .returning(move || Ok(CognitoClient {
+                user_pool_id: "hoge_pool_id".to_string(),
+                client_id: "hoge_client_id".to_string(),
+                region: "hoge_region".to_string(),
+                client_secret: "hoge_secret".to_string(),
+                client: Client::new(&shared_config),
+            }));
+
+        let repo = CognitoRepositoryImpl::new(Arc::new(mock_client));
+        let auth_user = AuthUser {
+            user_id: "".to_string(),
+            email: "test@example.com".to_string(),
+            password: "Password123".to_string(),
+            verify_code: "".to_string(),
+        };
+        let result = repo.signup_user(&auth_user).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(AuthException::InternalServerError(..))
+        ))
+    }
+
+    #[tokio::test]
+    async fn test_confirm_code_failed() {
+        let mut mock_client = MockCognitoClient::new();
+
+        let region = "hogehoge".to_string();
+        let region_provider = RegionProviderChain::first_try(Region::new(region));
+        let shared_config = aws_config::defaults(BehaviorVersion::latest())
+            .region(region_provider)
+            .load()
+            .await;
+
+        mock_client.expect_get_aws_config()
+            .returning(move || Ok(CognitoClient {
+                user_pool_id: "hoge_pool_id".to_string(),
+                client_id: "hoge_client_id".to_string(),
+                region: "hoge_region".to_string(),
+                client_secret: "hoge_secret".to_string(),
+                client: Client::new(&shared_config),
+            }));
+
+        let repo = CognitoRepositoryImpl::new(Arc::new(mock_client));
+        let auth_user = AuthUser {
+            user_id: "".to_string(),
+            email: "test@example.com".to_string(),
+            password: "Password123".to_string(),
+            verify_code: "".to_string(),
+        };
+        let result = repo.confirm_code(&auth_user).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(AuthException::AuthenticationFailed(..))
+        ))
+    }
+}

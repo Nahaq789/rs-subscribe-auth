@@ -71,7 +71,7 @@ pub async fn signup(
 ) -> Result<impl IntoResponse, ApplicationException> {
     module.signup_user(payload).await?;
     let response = json! {
-        {"message": "User Created", "Status Code": 200}
+        {"message": "User Created", "status_code": 200}
     };
 
     Ok((StatusCode::OK, Json(response)))
@@ -84,7 +84,7 @@ pub async fn confirm_code(
     module.confirm_code(payload).await?;
 
     let response = json! {
-        {"message": "Confirm Your Account", "Status Code": 200}
+        {"message": "Confirm Your Account", "status_code": 200}
     };
     Ok((StatusCode::OK, Json(response)))
 }
@@ -250,7 +250,85 @@ mod tests {
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(body["message"], "User Created");
-        assert_eq!(body["Status Code"], 200);
+        assert_eq!(body["status_code"], 200);
+    }
+
+    #[tokio::test]
+    async fn test_signup_user_already_exists() {
+        let mut mock_service = MockAuthService::new();
+        mock_service
+            .expect_signup_user()
+            .with(mockall::predicate::function(|auth: &AuthRequest| {
+                auth.email == "hogehoge@email.com"
+                    && auth.password == "hogehoge"
+                    && auth.verify_code == "hogehoge12345"
+            }))
+            .times(1)
+            .returning(|_| Err(ApplicationException::AuthError(AuthException::UserAlreadyExists)));
+
+        let auth_request = AuthRequest {
+            email: "hogehoge@email.com".to_string(),
+            password: "hogehoge".to_string(),
+            verify_code: "hogehoge12345".to_string(),
+        };
+        let json_body = serde_json::to_string(&auth_request).unwrap();
+        let request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/auth/signup")
+            .header("Content-Type", "application/json")
+            .body(Body::from(json_body))
+            .unwrap();
+
+
+        let app = app(Arc::new(mock_service)).await;
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        println!("{:?}", &body);
+        assert_eq!(body["message"], "User already exists: An account with this email address is already registered");
+        assert_eq!(body["status_code"], 500);
+    }
+
+    #[tokio::test]
+    async fn test_signup_invalid_password() {
+        let mut mock_service = MockAuthService::new();
+        mock_service
+            .expect_signup_user()
+            .with(mockall::predicate::function(|auth: &AuthRequest| {
+                auth.email == "hogehoge@email.com"
+                    && auth.password == "hogehoge"
+                    && auth.verify_code == "hogehoge12345"
+            }))
+            .times(1)
+            .returning(|_| Err(ApplicationException::AuthError(AuthException::InvalidPassword)));
+
+        let auth_request = AuthRequest {
+            email: "hogehoge@email.com".to_string(),
+            password: "hogehoge".to_string(),
+            verify_code: "hogehoge12345".to_string(),
+        };
+        let json_body = serde_json::to_string(&auth_request).unwrap();
+        let request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/auth/signup")
+            .header("Content-Type", "application/json")
+            .body(Body::from(json_body))
+            .unwrap();
+
+
+        let app = app(Arc::new(mock_service)).await;
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(body["message"], "Invalid password: Password does not meet the required criteria");
+        assert_eq!(body["status_code"], 500);
     }
 
     #[tokio::test]
@@ -327,7 +405,7 @@ mod tests {
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(body["message"], "Confirm Your Account");
-        assert_eq!(body["Status Code"], 200);
+        assert_eq!(body["status_code"], 200);
     }
 
     #[tokio::test]
