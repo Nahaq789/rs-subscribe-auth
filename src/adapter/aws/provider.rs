@@ -14,9 +14,9 @@ pub enum AwsConfigError {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-    use mockall::Any;
     use super::*;
+    use mockall::Any;
+    use std::sync::Arc;
 
     struct TestClient
     where
@@ -63,7 +63,10 @@ mod tests {
         let result = TestClient::get_aws_config(&client).await;
 
         assert!(result.is_ok());
-        assert_eq!(result.unwrap().type_name(), TestClient::new(true).type_name())
+        assert_eq!(
+            result.unwrap().type_name(),
+            TestClient::new(true).type_name()
+        )
     }
 
     #[tokio::test]
@@ -72,9 +75,7 @@ mod tests {
         let result = TestClient::get_aws_config(&client).await;
 
         assert!(result.is_err());
-        assert!(matches!(
-            result, Err(AwsConfigError::EnvVarNotFound(..))
-        ))
+        assert!(matches!(result, Err(AwsConfigError::EnvVarNotFound(..))))
     }
 
     #[test]

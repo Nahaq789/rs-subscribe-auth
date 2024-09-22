@@ -144,8 +144,8 @@ impl AwsProvider<CognitoClient> for CognitoClient {
 // Note: Some tests may require specific environment variables to be set.
 #[cfg(test)]
 mod tests {
-    use mockall::mock;
     use super::*;
+    use mockall::mock;
 
     mock! {
         CognitoClient {}
@@ -179,10 +179,14 @@ mod tests {
     #[tokio::test]
     async fn test_get_aws_config_failed() {
         let mut mock_client = MockCognitoClient::new();
-        mock_client.expect_get_aws_config().returning(|| Err(AwsConfigError::EnvVarNotFound("hogehoge".to_string())));
+        mock_client
+            .expect_get_aws_config()
+            .returning(|| Err(AwsConfigError::EnvVarNotFound("hogehoge".to_string())));
 
         match mock_client.get_aws_config().await {
-            Ok(client) => { println!("{:?}", client) }
+            Ok(client) => {
+                println!("{:?}", client)
+            }
             Err(e) => {
                 assert!(matches!(e, AwsConfigError::EnvVarNotFound(..)))
             }

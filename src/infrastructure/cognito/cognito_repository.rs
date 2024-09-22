@@ -245,12 +245,12 @@ impl CognitoRepository for CognitoRepositoryImpl {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::adapter::aws::provider::AwsConfigError;
     use aws_config::meta::region::RegionProviderChain;
     use aws_config::{BehaviorVersion, Region};
     use aws_sdk_cognitoidentityprovider::Client;
     use mockall::mock;
-    use crate::adapter::aws::provider::AwsConfigError;
-    use super::*;
 
     mock! {
         pub CognitoClient {}
@@ -271,14 +271,15 @@ mod tests {
             .load()
             .await;
 
-        mock_client.expect_get_aws_config()
-            .returning(move || Ok(CognitoClient {
+        mock_client.expect_get_aws_config().returning(move || {
+            Ok(CognitoClient {
                 user_pool_id: "hoge_pool_id".to_string(),
                 client_id: "hoge_client_id".to_string(),
                 region: "hoge_region".to_string(),
                 client_secret: "hoge_secret".to_string(),
                 client: Client::new(&shared_config),
-            }));
+            })
+        });
 
         let repo = CognitoRepositoryImpl::new(Arc::new(mock_client));
         let auth_user = AuthUser {
@@ -306,14 +307,15 @@ mod tests {
             .load()
             .await;
 
-        mock_client.expect_get_aws_config()
-            .returning(move || Ok(CognitoClient {
+        mock_client.expect_get_aws_config().returning(move || {
+            Ok(CognitoClient {
                 user_pool_id: "hoge_pool_id".to_string(),
                 client_id: "hoge_client_id".to_string(),
                 region: "hoge_region".to_string(),
                 client_secret: "hoge_secret".to_string(),
                 client: Client::new(&shared_config),
-            }));
+            })
+        });
 
         let repo = CognitoRepositoryImpl::new(Arc::new(mock_client));
         let auth_user = AuthUser {
@@ -341,14 +343,15 @@ mod tests {
             .load()
             .await;
 
-        mock_client.expect_get_aws_config()
-            .returning(move || Ok(CognitoClient {
+        mock_client.expect_get_aws_config().returning(move || {
+            Ok(CognitoClient {
                 user_pool_id: "hoge_pool_id".to_string(),
                 client_id: "hoge_client_id".to_string(),
                 region: "hoge_region".to_string(),
                 client_secret: "hoge_secret".to_string(),
                 client: Client::new(&shared_config),
-            }));
+            })
+        });
 
         let repo = CognitoRepositoryImpl::new(Arc::new(mock_client));
         let auth_user = AuthUser {

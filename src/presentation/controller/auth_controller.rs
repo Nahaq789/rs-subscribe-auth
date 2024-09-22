@@ -264,7 +264,11 @@ mod tests {
                     && auth.verify_code == "hogehoge12345"
             }))
             .times(1)
-            .returning(|_| Err(ApplicationException::AuthError(AuthException::UserAlreadyExists)));
+            .returning(|_| {
+                Err(ApplicationException::AuthError(
+                    AuthException::UserAlreadyExists,
+                ))
+            });
 
         let auth_request = AuthRequest {
             email: "hogehoge@email.com".to_string(),
@@ -279,7 +283,6 @@ mod tests {
             .body(Body::from(json_body))
             .unwrap();
 
-
         let app = app(Arc::new(mock_service)).await;
         let response = app.oneshot(request).await.unwrap();
 
@@ -288,7 +291,10 @@ mod tests {
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body: Value = serde_json::from_slice(&body).unwrap();
 
-        assert_eq!(body["message"], "User already exists: An account with this email address is already registered");
+        assert_eq!(
+            body["message"],
+            "User already exists: An account with this email address is already registered"
+        );
         assert_eq!(body["status_code"], 500);
     }
 
@@ -303,7 +309,11 @@ mod tests {
                     && auth.verify_code == "hogehoge12345"
             }))
             .times(1)
-            .returning(|_| Err(ApplicationException::AuthError(AuthException::InvalidPassword)));
+            .returning(|_| {
+                Err(ApplicationException::AuthError(
+                    AuthException::InvalidPassword,
+                ))
+            });
 
         let auth_request = AuthRequest {
             email: "hogehoge@email.com".to_string(),
@@ -318,7 +328,6 @@ mod tests {
             .body(Body::from(json_body))
             .unwrap();
 
-
         let app = app(Arc::new(mock_service)).await;
         let response = app.oneshot(request).await.unwrap();
 
@@ -327,7 +336,10 @@ mod tests {
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body: Value = serde_json::from_slice(&body).unwrap();
 
-        assert_eq!(body["message"], "Invalid password: Password does not meet the required criteria");
+        assert_eq!(
+            body["message"],
+            "Invalid password: Password does not meet the required criteria"
+        );
         assert_eq!(body["status_code"], 500);
     }
 

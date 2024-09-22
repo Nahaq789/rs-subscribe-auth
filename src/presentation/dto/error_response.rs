@@ -1,5 +1,5 @@
 use http::StatusCode;
-use serde::{Serialize};
+use serde::Serialize;
 
 #[derive(Serialize, Debug)]
 pub struct ErrorResponse {
