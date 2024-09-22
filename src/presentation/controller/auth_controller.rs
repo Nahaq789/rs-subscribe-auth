@@ -287,7 +287,7 @@ mod tests {
 
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body: Value = serde_json::from_slice(&body).unwrap();
-        println!("{:?}", &body);
+
         assert_eq!(body["message"], "User already exists: An account with this email address is already registered");
         assert_eq!(body["status_code"], 500);
     }

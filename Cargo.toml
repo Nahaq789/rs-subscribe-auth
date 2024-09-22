@@ -32,6 +32,7 @@ regex = "1.10.6"
 tower = "0.4.13"
 http-body-util = "0.1.0"
 rstest = "0.22.0"
+axum-test = "15.7.1"
 
 [target.x86_64-unknown-linux-gnu]
 linker = "x86_64-unknown-linux-gnu-gcc"
@@ -48,3 +49,10 @@ lto = true          # Enable Link Time Optimization
 codegen-units = 1   # Reduce number of codegen units to increase optimizations
 panic = 'abort'     # Abort on panic
 strip = true        # Strip symbols from binary
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[features]
+default = ["coverage"]
+coverage = []

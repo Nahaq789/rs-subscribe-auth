@@ -57,14 +57,50 @@ pub async fn create_app() {
     // Set up DI
     let app_state = AppState::new().await;
 
-    // Set up the application routes and inject the auth service
-    let app = Router::new()
-        .route("/api/v1/auth/signin", post(signin))
-        .route("/api/v1/auth/signup", post(signup))
-        .route("/api/v1/auth/confirm", post(confirm_code))
-        .layer(Extension(app_state.auth_service));
+    let app = create_router(app_state).await;
 
     // Create a TCP listener and start the server
     let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
     axum::serve(listener, app).await.unwrap();
+}
+
+async fn create_router(app_state: AppState) -> Router {
+    Router::new()
+        .route("/api/v1/auth/signin", post(signin))
+        .route("/api/v1/auth/signup", post(signup))
+        .route("/api/v1/auth/confirm", post(confirm_code))
+        .layer(Extension(app_state.auth_service))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::setup::{create_router};
+    use axum_test::TestServer;
+    use http::StatusCode;
+    use crate::modules::module::AppState;
+
+    #[tokio::test]
+    async fn test_app_routes() {
+        let app_state = AppState::new().await;
+        let app = create_router(app_state).await;
+        let server = TestServer::new(app).unwrap();
+
+        let response = server
+            .post("/api/v1/auth/signin")
+            .add_header("Content-Type", "application/json")
+            .await;
+        assert_eq!(response.status_code(), StatusCode::BAD_REQUEST);
+
+        let response = server
+            .post("/api/v1/auth/signup")
+            .add_header("Content-Type", "application/json")
+            .await;
+        assert_eq!(response.status_code(), StatusCode::BAD_REQUEST);
+
+        let response = server
+            .post("/api/v1/auth/confirm")
+            .add_header("Content-Type", "application/json")
+            .await;
+        assert_eq!(response.status_code(), StatusCode::BAD_REQUEST)
+    }
 }

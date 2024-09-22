@@ -24,7 +24,7 @@ pub struct CognitoClient {
     pub client_id: String,
     /// The AWS region
     pub region: String,
-    /// The AWS COginito Secret Hash
+    /// The AWS Client Secret Hash
     pub client_secret: String,
     /// The AWS Cognito Identity Provider client
     pub client: Client,
@@ -121,7 +121,7 @@ impl CognitoClient {
 /// Implementation of AwsProvider trait for CognitoClient
 #[async_trait]
 impl AwsProvider<CognitoClient> for CognitoClient {
-    /// Retrieves the AWS configuration for CognitoClient
+    /// Retrieves the AWS configuration for Cogni toClient
     ///
     /// This implementation creates a new CognitoClient instance from environment variables
     /// each time it's called. This might not be the most efficient approach for frequent calls.
@@ -143,11 +143,54 @@ impl AwsProvider<CognitoClient> for CognitoClient {
 // These tests verify the correct functionality of CognitoClient creation and initialization.
 // Note: Some tests may require specific environment variables to be set.
 #[cfg(test)]
-mod cognito_client_tests {
+mod tests {
+    use mockall::mock;
     use super::*;
 
+    mock! {
+        CognitoClient {}
+        #[async_trait]
+        impl AwsProvider<CognitoClient> for CognitoClient {
+            async fn get_aws_config(&self) -> Result<CognitoClient, AwsConfigError>;
+        }
+    }
+
     #[tokio::test]
-    async fn create_cognito_client_test() {
+    async fn test_get_aws_config_success() {
+        let region = "hogehoge".to_string();
+        let region_provider = RegionProviderChain::first_try(Region::new(region));
+        let shared_config = aws_config::defaults(BehaviorVersion::latest())
+            .region(region_provider)
+            .load()
+            .await;
+
+        let client = CognitoClient {
+            user_pool_id: "hoge_pool_id".to_string(),
+            client_id: "hoge_client_id".to_string(),
+            region: "hoge_region".to_string(),
+            client_secret: "hoge_secret".to_string(),
+            client: Client::new(&shared_config),
+        };
+
+        let result = CognitoClient::get_aws_config(&client).await;
+        assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_get_aws_config_failed() {
+        let mut mock_client = MockCognitoClient::new();
+        mock_client.expect_get_aws_config().returning(|| Err(AwsConfigError::EnvVarNotFound("hogehoge".to_string())));
+
+        match mock_client.get_aws_config().await {
+            Ok(client) => { println!("{:?}", client) }
+            Err(e) => {
+                assert!(matches!(e, AwsConfigError::EnvVarNotFound(..)))
+            }
+        }
+    }
+
+    #[tokio::test]
+    async fn test_create_cognito_client() {
         // Test case: Creation of CognitoClient
         // This test verifies that a CognitoClient can be correctly instantiated
         // with provided parameters and that all its fields are properly set.
@@ -199,20 +242,28 @@ mod cognito_client_tests {
     }
 
     #[tokio::test]
-    async fn from_env_test() {
+    async fn test_from_env() {
         // Test case: Creation of CognitoClient from environment variables
         // This test ensures that CognitoClient can be successfully created
         // using the from_env() method, which loads configuration from environment variables.
 
         // Attempt to create a CognitoClient using from_env() method
         // The result is immediately wrapped in Some to convert it to an Option
-        let result: Option<CognitoClient> = Some(CognitoClient::from_env().await.unwrap());
+        let client: Option<CognitoClient> = Some(CognitoClient::from_env().await.unwrap());
 
         // Assert that the result is Some, indicating successful creation
         assert!(
-            result.is_some(),
+            client.is_some(),
             "CognitoClient should be successfully created from environment variables"
         );
+
+        let result = client.unwrap();
+
+        assert!(Some(&result.user_pool_id).is_some());
+        assert!(Some(&result.client_id).is_some());
+        assert!(Some(&result.region).is_some());
+        assert!(Some(&result.client_secret).is_some());
+        assert!(Some(&result.client).is_some())
 
         // Note: For this test to pass, the necessary environment variables must be set correctly.
         // It's recommended to document the required environment variables and their expected values
