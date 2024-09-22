@@ -1790,6 +1790,7 @@ dependencies = [
  "hmac",
  "http 1.1.0",
  "http-body-util",
+ "hyper 0.14.30",
  "jsonwebtoken",
  "log",
  "mockall",

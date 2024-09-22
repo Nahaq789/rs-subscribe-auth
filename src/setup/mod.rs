@@ -74,10 +74,11 @@ async fn create_router(app_state: AppState) -> Router {
 
 #[cfg(test)]
 mod tests {
-    use crate::setup::{create_router};
+    use crate::modules::module::AppState;
+    use crate::setup::create_router;
     use axum_test::TestServer;
     use http::StatusCode;
-    use crate::modules::module::AppState;
+    use hyper::{Body, Client, Request};
 
     #[tokio::test]
     async fn test_app_routes() {
@@ -102,5 +103,49 @@ mod tests {
             .add_header("Content-Type", "application/json")
             .await;
         assert_eq!(response.status_code(), StatusCode::BAD_REQUEST)
+    }
+
+    #[tokio::test]
+    async fn test_create_app() {
+        let app_state = AppState::new().await;
+        let app = create_router(app_state).await;
+
+        let listener = tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+
+        let client = Client::new();
+        let req = Request::builder()
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .uri(format!("http://{}/api/v1/auth/signin", addr))
+            .body(Body::empty()).unwrap();
+        let res = client.request(req).await.unwrap();
+
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST.as_u16());
+
+        let req = Request::builder()
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .uri(format!("http://{}/api/v1/auth/signup", addr))
+            .body(Body::empty()).unwrap();
+        let res = client.request(req).await.unwrap();
+
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST.as_u16());
+
+        let req = Request::builder()
+            .method("POST")
+            .header("Content-Type", "application/json")
+            .uri(format!("http://{}/api/v1/auth/confirm", addr))
+            .body(Body::empty()).unwrap();
+        let res = client.request(req).await.unwrap();
+
+        assert_eq!(res.status(), StatusCode::BAD_REQUEST.as_u16());
+        server.abort();
     }
 }
