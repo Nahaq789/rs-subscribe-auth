@@ -124,7 +124,8 @@ mod tests {
             .method("POST")
             .header("Content-Type", "application/json")
             .uri(format!("http://{}/api/v1/auth/signin", addr))
-            .body(Body::empty()).unwrap();
+            .body(Body::empty())
+            .unwrap();
         let res = client.request(req).await.unwrap();
 
         assert_eq!(res.status(), StatusCode::BAD_REQUEST.as_u16());
@@ -133,7 +134,8 @@ mod tests {
             .method("POST")
             .header("Content-Type", "application/json")
             .uri(format!("http://{}/api/v1/auth/signup", addr))
-            .body(Body::empty()).unwrap();
+            .body(Body::empty())
+            .unwrap();
         let res = client.request(req).await.unwrap();
 
         assert_eq!(res.status(), StatusCode::BAD_REQUEST.as_u16());
@@ -142,7 +144,8 @@ mod tests {
             .method("POST")
             .header("Content-Type", "application/json")
             .uri(format!("http://{}/api/v1/auth/confirm", addr))
-            .body(Body::empty()).unwrap();
+            .body(Body::empty())
+            .unwrap();
         let res = client.request(req).await.unwrap();
 
         assert_eq!(res.status(), StatusCode::BAD_REQUEST.as_u16());
