@@ -72,3 +72,23 @@ impl AppState {
         Self { auth_service }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use mockall::Any;
+
+    #[tokio::test]
+    async fn test_app_state_create_success() {
+        let result = AppState::new().await;
+
+        assert_eq!(
+            result.type_name().to_string(),
+            AppState::new().await.type_name().to_string()
+        );
+        assert_eq!(
+            result.auth_service.type_name().to_string(),
+            AppState::new().await.auth_service.type_name().to_string()
+        )
+    }
+}

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use aws_sdk_cognitoidentityprovider::error::ProvideErrorMetadata;
 use aws_sdk_cognitoidentityprovider::{
     error::SdkError, operation::sign_up::SignUpError, types::AttributeType,
 };
@@ -11,7 +12,7 @@ use crate::{
         entity::{auth_user::AuthUser, token::Token},
         repository::cognito_repository::CognitoRepository,
     },
-    exception::auth_error::AuthError,
+    exception::auth_exception::AuthException,
 };
 
 /// Implements the CognitoRepository trait using AWS SDK for Cognito.
@@ -40,6 +41,10 @@ impl CognitoRepositoryImpl {
     pub fn new(cognito: Arc<dyn AwsProvider<CognitoClient>>) -> Self {
         CognitoRepositoryImpl { cognito }
     }
+
+    fn generate_secret_hash(email: &str, client_id: &str, client_secret: &str) -> String {
+        CognitoClient::client_secret_hash(email, client_id, client_secret)
+    }
 }
 
 #[async_trait]
@@ -67,18 +72,15 @@ impl CognitoRepository for CognitoRepositoryImpl {
     /// - `AuthError::ConfigurationError` if there's an issue with the AWS configuration.
     /// - `AuthError::AuthenticationFailed` if Cognito rejects the authentication attempt.
     /// - `AuthError::TokenMissing` if the expected tokens are not present in Cognito's response.
-    async fn authenticate_user(&self, auth: &AuthUser) -> Result<Token, AuthError> {
+    async fn authenticate_user(&self, auth: &AuthUser) -> Result<Token, AuthException> {
         let cognito = self
             .cognito
             .get_aws_config()
             .await
-            .map_err(|_| AuthError::ConfigurationError)?;
+            .map_err(|_| AuthException::ConfigurationError)?;
 
-        let secret_hash = CognitoClient::client_secret_hash(
-            &auth.email,
-            &cognito.client_id,
-            &cognito.client_secret,
-        );
+        let secret_hash =
+            Self::generate_secret_hash(&auth.email, &cognito.client_id, &cognito.client_secret);
 
         let authentication = cognito
             .client
@@ -92,19 +94,19 @@ impl CognitoRepository for CognitoRepositoryImpl {
             .await
             .map_err(|e| {
                 log::error!("Authentication failed: {:?}", e);
-                AuthError::AuthenticationFailed
+                AuthException::AuthenticationFailed(e.message().unwrap_or_default().to_string())
             })?;
 
         let authenticate_result = authentication.authentication_result().ok_or_else(|| {
             log::error!("No authentication result in response");
-            AuthError::AuthenticationFailed
+            AuthException::AuthenticationFailed("No authentication result in response".to_string())
         })?;
 
         let jwt = authenticate_result
             .access_token()
             .ok_or_else(|| {
                 log::error!("Access token missing from authentication result");
-                AuthError::TokenMissing
+                AuthException::TokenMissing
             })?
             .to_string();
 
@@ -112,7 +114,7 @@ impl CognitoRepository for CognitoRepositoryImpl {
             .refresh_token()
             .ok_or_else(|| {
                 log::error!("Refresh token missing from authentication result");
-                AuthError::TokenMissing
+                AuthException::TokenMissing
             })?
             .to_string();
 
@@ -144,12 +146,12 @@ impl CognitoRepository for CognitoRepositoryImpl {
     /// - `AuthError::UserAlreadyExists` if a user with the given email already exists.
     /// - `AuthError::InvalidPassword` if the provided password doesn't meet Cognito's requirements.
     /// - `AuthError::InternalServerError` for other types of errors, including AWS SDK errors.
-    async fn signup_user(&self, auth: &AuthUser) -> Result<(), AuthError> {
+    async fn signup_user(&self, auth: &AuthUser) -> Result<(), AuthException> {
         let cognito = self
             .cognito
             .get_aws_config()
             .await
-            .map_err(|_| AuthError::ConfigurationError)?;
+            .map_err(|_| AuthException::ConfigurationError)?;
 
         let email_attribute = AttributeType::builder()
             .name("email")
@@ -157,16 +159,16 @@ impl CognitoRepository for CognitoRepositoryImpl {
             .build()
             .map_err(|e| {
                 log::error!("Failed to build email attribute: {:?}", e);
-                AuthError::InternalServerError(format!("Failed to build email attribute: {:?}", e))
+                AuthException::InternalServerError(format!(
+                    "Failed to build email attribute: {:?}",
+                    e
+                ))
             })?;
 
-        let secret_hash = CognitoClient::client_secret_hash(
-            &auth.email,
-            &cognito.client_id,
-            &cognito.client_secret,
-        );
+        let secret_hash =
+            Self::generate_secret_hash(&auth.email, &cognito.client_id, &cognito.client_secret);
 
-        let _ = cognito
+        cognito
             .client
             .sign_up()
             .client_id(&cognito.client_id)
@@ -180,16 +182,16 @@ impl CognitoRepository for CognitoRepositoryImpl {
                 log::error!("Signup error: {:?}", e);
                 match e {
                     SdkError::ServiceError(service_error) => match service_error.err() {
-                        SignUpError::UsernameExistsException(_) => AuthError::UserAlreadyExists,
-                        SignUpError::InvalidPasswordException(_) => AuthError::InvalidPassword,
-                        _ => AuthError::InternalServerError(format!(
+                        SignUpError::UsernameExistsException(_) => AuthException::UserAlreadyExists,
+                        SignUpError::InvalidPasswordException(_) => AuthException::InvalidPassword,
+                        _ => AuthException::InternalServerError(format!(
                             "Unhandled Cognito error: {:?}",
                             service_error
                         )),
                     },
-                    _ => AuthError::InternalServerError(format!("AWS SDK error: {:?}", e)),
+                    _ => AuthException::InternalServerError(format!("AWS SDK error: {:?}", e)),
                 }
-            });
+            })?;
         Ok(())
     }
 
@@ -213,18 +215,15 @@ impl CognitoRepository for CognitoRepositoryImpl {
     /// This method can return various `AuthError` variants, including:
     /// - `AuthError::ConfigurationError` if there's an issue with the AWS configuration.
     /// - `AuthError::AuthenticationFailed` if the verification code is invalid or expired.
-    async fn confirm_code(&self, auth: &AuthUser) -> Result<(), AuthError> {
+    async fn confirm_code(&self, auth: &AuthUser) -> Result<(), AuthException> {
         let cognito = self
             .cognito
             .get_aws_config()
             .await
-            .map_err(|_| AuthError::ConfigurationError)?;
+            .map_err(|_| AuthException::ConfigurationError)?;
 
-        let secret_hash = CognitoClient::client_secret_hash(
-            &auth.email,
-            &cognito.client_id,
-            &cognito.client_secret,
-        );
+        let secret_hash =
+            Self::generate_secret_hash(&auth.email, &cognito.client_id, &cognito.client_secret);
 
         cognito
             .client
@@ -237,9 +236,135 @@ impl CognitoRepository for CognitoRepositoryImpl {
             .await
             .map_err(|e| {
                 log::error!("Verify Confirm error: {:?}", e);
-                AuthError::AuthenticationFailed
+                AuthException::AuthenticationFailed(e.to_string())
             })?;
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::adapter::aws::provider::AwsConfigError;
+    use aws_config::meta::region::RegionProviderChain;
+    use aws_config::{BehaviorVersion, Region};
+    use aws_sdk_cognitoidentityprovider::Client;
+    use mockall::mock;
+
+    mock! {
+        pub CognitoClient {}
+        #[async_trait]
+        impl AwsProvider<CognitoClient> for CognitoClient {
+            async fn get_aws_config(&self) -> Result<CognitoClient, AwsConfigError>;
+        }
+    }
+
+    #[tokio::test]
+    async fn test_authenticate_user_failed() {
+        let mut mock_client = MockCognitoClient::new();
+
+        let region = "hogehoge".to_string();
+        let region_provider = RegionProviderChain::first_try(Region::new(region));
+        let shared_config = aws_config::defaults(BehaviorVersion::latest())
+            .region(region_provider)
+            .load()
+            .await;
+
+        mock_client.expect_get_aws_config().returning(move || {
+            Ok(CognitoClient {
+                user_pool_id: "hoge_pool_id".to_string(),
+                client_id: "hoge_client_id".to_string(),
+                region: "hoge_region".to_string(),
+                client_secret: "hoge_secret".to_string(),
+                client: Client::new(&shared_config),
+            })
+        });
+
+        let repo = CognitoRepositoryImpl::new(Arc::new(mock_client));
+        let auth_user = AuthUser {
+            user_id: "".to_string(),
+            email: "test@example.com".to_string(),
+            password: "Password123".to_string(),
+            verify_code: "".to_string(),
+        };
+        let result = repo.authenticate_user(&auth_user).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(AuthException::AuthenticationFailed(..))
+        ))
+    }
+
+    #[tokio::test]
+    async fn test_signup_user_failed() {
+        let mut mock_client = MockCognitoClient::new();
+
+        let region = "hogehoge".to_string();
+        let region_provider = RegionProviderChain::first_try(Region::new(region));
+        let shared_config = aws_config::defaults(BehaviorVersion::latest())
+            .region(region_provider)
+            .load()
+            .await;
+
+        mock_client.expect_get_aws_config().returning(move || {
+            Ok(CognitoClient {
+                user_pool_id: "hoge_pool_id".to_string(),
+                client_id: "hoge_client_id".to_string(),
+                region: "hoge_region".to_string(),
+                client_secret: "hoge_secret".to_string(),
+                client: Client::new(&shared_config),
+            })
+        });
+
+        let repo = CognitoRepositoryImpl::new(Arc::new(mock_client));
+        let auth_user = AuthUser {
+            user_id: "".to_string(),
+            email: "test@example.com".to_string(),
+            password: "Password123".to_string(),
+            verify_code: "".to_string(),
+        };
+        let result = repo.signup_user(&auth_user).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(AuthException::InternalServerError(..))
+        ))
+    }
+
+    #[tokio::test]
+    async fn test_confirm_code_failed() {
+        let mut mock_client = MockCognitoClient::new();
+
+        let region = "hogehoge".to_string();
+        let region_provider = RegionProviderChain::first_try(Region::new(region));
+        let shared_config = aws_config::defaults(BehaviorVersion::latest())
+            .region(region_provider)
+            .load()
+            .await;
+
+        mock_client.expect_get_aws_config().returning(move || {
+            Ok(CognitoClient {
+                user_pool_id: "hoge_pool_id".to_string(),
+                client_id: "hoge_client_id".to_string(),
+                region: "hoge_region".to_string(),
+                client_secret: "hoge_secret".to_string(),
+                client: Client::new(&shared_config),
+            })
+        });
+
+        let repo = CognitoRepositoryImpl::new(Arc::new(mock_client));
+        let auth_user = AuthUser {
+            user_id: "".to_string(),
+            email: "test@example.com".to_string(),
+            password: "Password123".to_string(),
+            verify_code: "".to_string(),
+        };
+        let result = repo.confirm_code(&auth_user).await;
+        assert!(result.is_err());
+        assert!(matches!(
+            result,
+            Err(AuthException::AuthenticationFailed(..))
+        ))
     }
 }

@@ -1,5 +1,6 @@
 use rs_subscribe_auth::setup::create_app;
 use std::env;
+use tracing::{event, Level};
 
 /// The main entry point for the rs_subscribe_auth application.
 ///
@@ -48,7 +49,7 @@ async fn main() -> anyhow::Result<()> {
     env_logger::init();
 
     // Log the application start
-    log::info!("Application Started");
+    event!(Level::INFO, "Application Started");
 
     // Create and initialize the application
     let _ = create_app().await;

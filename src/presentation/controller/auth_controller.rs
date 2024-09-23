@@ -1,5 +1,8 @@
+use crate::domain::exception::auth_domain_exception::AuthDomainException;
+use crate::exception::application_exception::ApplicationException;
+use crate::presentation::dto::error_response::ErrorResponse;
 use crate::{
-    exception::auth_error::AuthError,
+    exception::auth_exception::AuthException,
     modules::module::DynAuthService,
     presentation::dto::{auth_request::AuthRequest, auth_result::AuthResult},
 };
@@ -10,16 +13,24 @@ use axum::{
 };
 use serde_json::json;
 
-/// Implements the `IntoResponse` trait for `AuthError`.
-/// This allows `AuthError` to be converted into an HTTP response.
-impl IntoResponse for AuthError {
+/// Implements the `IntoResponse` trait for `ApplicationError`.
+/// This allows `ApplicationError` to be converted into an HTTP response.
+impl IntoResponse for ApplicationException {
     fn into_response(self) -> Response {
-        let status = match self {
-            AuthError::AuthenticationFailed => (StatusCode::UNAUTHORIZED, self.to_string()),
-            AuthError::TokenMissing => (StatusCode::UNAUTHORIZED, self.to_string()),
+        let (status, error_message) = match self {
+            ApplicationException::AuthError(AuthException::AuthenticationFailed(..)) => {
+                (StatusCode::UNAUTHORIZED, self.to_string())
+            }
+            ApplicationException::AuthError(AuthException::TokenMissing) => {
+                (StatusCode::UNAUTHORIZED, self.to_string())
+            }
+            ApplicationException::AuthDomainError(AuthDomainException::ValidateFailed) => {
+                (StatusCode::BAD_REQUEST, self.to_string())
+            }
             _ => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
         };
-        status.into_response()
+        let body = Json(ErrorResponse::new(status, &error_message));
+        (status, body).into_response()
     }
 }
 
@@ -32,11 +43,11 @@ impl IntoResponse for AuthError {
 ///
 /// # Returns
 ///
-/// Returns a `Result` containing the authentication result or an `AuthError`.
+/// Returns a `Result` containing the authentication result or an `ApplicationError`.
 pub async fn signin(
     Extension(module): Extension<DynAuthService>,
     Json(payload): Json<AuthRequest>,
-) -> Result<impl IntoResponse, AuthError> {
+) -> Result<impl IntoResponse, ApplicationException> {
     let token = module.authenticate_user(payload).await?;
 
     let result = AuthResult::new(&token.jwt, &token.refresh, 200);
@@ -53,14 +64,14 @@ pub async fn signin(
 ///
 /// # Returns
 ///
-/// Returns a `Result` containing the authentication result for the new user or an `AuthError`.
+/// Returns a `Result` containing the authentication result for the new user or an `ApplicationError`.
 pub async fn signup(
     Extension(module): Extension<DynAuthService>,
     Json(payload): Json<AuthRequest>,
-) -> Result<impl IntoResponse, AuthError> {
+) -> Result<impl IntoResponse, ApplicationException> {
     module.signup_user(payload).await?;
     let response = json! {
-        {"message": "User Created", "Status Code": 200}
+        {"message": "User Created", "status_code": 200}
     };
 
     Ok((StatusCode::OK, Json(response)))
@@ -69,18 +80,18 @@ pub async fn signup(
 pub async fn confirm_code(
     Extension(module): Extension<DynAuthService>,
     Json(payload): Json<AuthRequest>,
-) -> Result<impl IntoResponse, AuthError> {
+) -> Result<impl IntoResponse, ApplicationException> {
     module.confirm_code(payload).await?;
 
     let response = json! {
-        {"message": "Confirm Your Account", "Status Code": 200}
+        {"message": "Confirm Your Account", "status_code": 200}
     };
     Ok((StatusCode::OK, Json(response)))
 }
 
 // ===== TEST SECTION START =====
 #[cfg(test)]
-mod test {
+mod tests {
     use super::*;
     use crate::application::auth::auth_service::AuthService;
     use crate::domain::entity::token::Token;
@@ -98,9 +109,9 @@ mod test {
         AuthService {}
         #[axum::async_trait]
         impl AuthService for AuthService {
-            async fn authenticate_user(&self, auth: AuthRequest) -> Result<Token, AuthError>;
-            async fn signup_user(&self, auth: AuthRequest) -> Result<(), AuthError>;
-            async fn confirm_code(&self, auth: AuthRequest) -> Result<(), AuthError>;
+            async fn authenticate_user(&self, auth: AuthRequest) -> Result<Token, ApplicationException>;
+            async fn signup_user(&self, auth: AuthRequest) -> Result<(), ApplicationException>;
+            async fn confirm_code(&self, auth: AuthRequest) -> Result<(), ApplicationException>;
         }
     }
 
@@ -171,7 +182,11 @@ mod test {
                     && auth.password == "hogehoge"
                     && auth.verify_code == "hogehoge12345"
             }))
-            .returning(|_| Err(AuthError::AuthenticationFailed));
+            .returning(|_| {
+                Err(ApplicationException::AuthError(
+                    AuthException::AuthenticationFailed("hoge".to_string()),
+                ))
+            });
 
         let auth_request = AuthRequest {
             email: "hogehoge@email.com".to_string(),
@@ -193,7 +208,12 @@ mod test {
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 
         let body = response.into_body().collect().await.unwrap().to_bytes();
-        assert_eq!(body, AuthError::AuthenticationFailed.to_string())
+        let body: Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(
+            body["message"],
+            AuthException::AuthenticationFailed("hoge".to_string()).to_string()
+        )
     }
 
     #[tokio::test]
@@ -230,11 +250,11 @@ mod test {
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(body["message"], "User Created");
-        assert_eq!(body["Status Code"], 200);
+        assert_eq!(body["status_code"], 200);
     }
 
     #[tokio::test]
-    async fn test_signup_failed() {
+    async fn test_signup_user_already_exists() {
         let mut mock_service = MockAuthService::new();
         mock_service
             .expect_signup_user()
@@ -244,7 +264,11 @@ mod test {
                     && auth.verify_code == "hogehoge12345"
             }))
             .times(1)
-            .returning(|_| Err(AuthError::InternalServerError("test".to_string())));
+            .returning(|_| {
+                Err(ApplicationException::AuthError(
+                    AuthException::UserAlreadyExists,
+                ))
+            });
 
         let auth_request = AuthRequest {
             email: "hogehoge@email.com".to_string(),
@@ -265,7 +289,98 @@ mod test {
         assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
 
         let body = response.into_body().collect().await.unwrap().to_bytes();
-        assert_eq!(body, "Internal Server Error: test");
+        let body: Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(
+            body["message"],
+            "User already exists: An account with this email address is already registered"
+        );
+        assert_eq!(body["status_code"], 500);
+    }
+
+    #[tokio::test]
+    async fn test_signup_invalid_password() {
+        let mut mock_service = MockAuthService::new();
+        mock_service
+            .expect_signup_user()
+            .with(mockall::predicate::function(|auth: &AuthRequest| {
+                auth.email == "hogehoge@email.com"
+                    && auth.password == "hogehoge"
+                    && auth.verify_code == "hogehoge12345"
+            }))
+            .times(1)
+            .returning(|_| {
+                Err(ApplicationException::AuthError(
+                    AuthException::InvalidPassword,
+                ))
+            });
+
+        let auth_request = AuthRequest {
+            email: "hogehoge@email.com".to_string(),
+            password: "hogehoge".to_string(),
+            verify_code: "hogehoge12345".to_string(),
+        };
+        let json_body = serde_json::to_string(&auth_request).unwrap();
+        let request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/auth/signup")
+            .header("Content-Type", "application/json")
+            .body(Body::from(json_body))
+            .unwrap();
+
+        let app = app(Arc::new(mock_service)).await;
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(
+            body["message"],
+            "Invalid password: Password does not meet the required criteria"
+        );
+        assert_eq!(body["status_code"], 500);
+    }
+
+    #[tokio::test]
+    async fn test_signup_failed() {
+        let mut mock_service = MockAuthService::new();
+        mock_service
+            .expect_signup_user()
+            .with(mockall::predicate::function(|auth: &AuthRequest| {
+                auth.email == "hogehoge@email.com"
+                    && auth.password == "hogehoge"
+                    && auth.verify_code == "hogehoge12345"
+            }))
+            .times(1)
+            .returning(|_| {
+                Err(ApplicationException::AuthError(
+                    AuthException::InternalServerError("test".to_string()),
+                ))
+            });
+
+        let auth_request = AuthRequest {
+            email: "hogehoge@email.com".to_string(),
+            password: "hogehoge".to_string(),
+            verify_code: "hogehoge12345".to_string(),
+        };
+        let json_body = serde_json::to_string(&auth_request).unwrap();
+        let request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/auth/signup")
+            .header("Content-Type", "application/json")
+            .body(Body::from(json_body))
+            .unwrap();
+
+        let app = app(Arc::new(mock_service)).await;
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["message"], "Internal Server Error: test");
     }
 
     #[tokio::test]
@@ -302,7 +417,7 @@ mod test {
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body: Value = serde_json::from_slice(&body).unwrap();
         assert_eq!(body["message"], "Confirm Your Account");
-        assert_eq!(body["Status Code"], 200);
+        assert_eq!(body["status_code"], 200);
     }
 
     #[tokio::test]
@@ -316,7 +431,11 @@ mod test {
                     && auth.verify_code == "hogehoge12345"
             }))
             .times(1)
-            .returning(|_| Err(AuthError::AuthenticationFailed));
+            .returning(|_| {
+                Err(ApplicationException::AuthError(
+                    AuthException::AuthenticationFailed(String::from("hoge")),
+                ))
+            });
 
         let auth_request = AuthRequest {
             email: "hogehoge@email.com".to_string(),
@@ -337,6 +456,47 @@ mod test {
         assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
 
         let body = response.into_body().collect().await.unwrap().to_bytes();
-        assert_eq!(body, "Authentication failed")
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["message"], "Authentication failed: hoge")
+    }
+
+    #[tokio::test]
+    async fn test_return_auth_domain_exception() {
+        let mut mock_service = MockAuthService::new();
+        mock_service
+            .expect_confirm_code()
+            .with(mockall::predicate::function(|auth: &AuthRequest| {
+                auth.email == "hogehoge@email.com........."
+                    && auth.password == "hogehoge"
+                    && auth.verify_code == "hogehoge12345"
+            }))
+            .times(1)
+            .returning(|_| {
+                Err(ApplicationException::AuthDomainError(
+                    AuthDomainException::ValidateFailed,
+                ))
+            });
+
+        let auth_request = AuthRequest {
+            email: "hogehoge@email.com.........".to_string(),
+            password: "hogehoge".to_string(),
+            verify_code: "hogehoge12345".to_string(),
+        };
+        let json_body = serde_json::to_string(&auth_request).unwrap();
+        let request = Request::builder()
+            .method("POST")
+            .uri("/api/v1/auth/confirm")
+            .header("Content-Type", "application/json")
+            .body(Body::from(json_body))
+            .unwrap();
+
+        let app = app(Arc::new(mock_service)).await;
+        let response = app.oneshot(request).await.unwrap();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["message"], "Validate Error")
     }
 }

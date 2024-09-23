@@ -6,7 +6,7 @@ use thiserror::Error;
 /// including issues with the authentication process itself, server-side problems,
 /// configuration errors, and user input validation failures.
 #[derive(Error, Debug)]
-pub enum AuthError {
+pub enum AuthException {
     /// Indicates that the authentication process has failed.
     ///
     /// This error is typically raised when the provided credentials (username/email and password)
@@ -18,8 +18,8 @@ pub enum AuthError {
     /// - Incorrect password provided for an existing username
     /// - Non-existent username/email used for login attempt
     /// - Authentication service temporary failure
-    #[error("Authentication failed")]
-    AuthenticationFailed,
+    #[error("Authentication failed: {0}")]
+    AuthenticationFailed(String),
 
     /// Represents an internal server error with additional context.
     ///
@@ -84,4 +84,54 @@ pub enum AuthError {
     /// - Password matches common patterns or known weak passwords
     #[error("Invalid password: Password does not meet the required criteria")]
     InvalidPassword,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_auth_exception_authentication_failed() {
+        assert_eq!(
+            AuthException::AuthenticationFailed("hoge".to_string()).to_string(),
+            "Authentication failed: hoge"
+        )
+    }
+
+    #[test]
+    fn test_auth_exception_internal_server_error() {
+        assert_eq!(
+            AuthException::InternalServerError("hoge".to_string()).to_string(),
+            "Internal Server Error: hoge"
+        )
+    }
+
+    #[test]
+    fn test_auth_exception_configuration_error() {
+        assert_eq!(
+            AuthException::ConfigurationError.to_string(),
+            "Configuration Error"
+        )
+    }
+
+    #[test]
+    fn test_auth_exception_token_missing() {
+        assert_eq!(AuthException::TokenMissing.to_string(), "Token Missing")
+    }
+
+    #[test]
+    fn test_auth_exception_user_already_exists() {
+        assert_eq!(
+            AuthException::UserAlreadyExists.to_string(),
+            "User already exists: An account with this email address is already registered"
+        )
+    }
+
+    #[test]
+    fn test_auth_exception_invalid_password() {
+        assert_eq!(
+            AuthException::InvalidPassword.to_string(),
+            "Invalid password: Password does not meet the required criteria"
+        )
+    }
 }
