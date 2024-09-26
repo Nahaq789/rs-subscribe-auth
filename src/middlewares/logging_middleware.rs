@@ -23,7 +23,7 @@ pub async fn logging_middleware(req: Request<Body>, next: Next) -> impl IntoResp
     let (mut res_json, bytes) = process_response(body).await.unwrap_or_default();
 
     match parts.status {
-        StatusCode::OK => tracing::info!("End request: {:?}", res_json),
+        StatusCode::OK => tracing::info!("End request: {}", res_json),
         _ => tracing::error!("End request: {}", secret_value(&mut res_json)),
     }
 
