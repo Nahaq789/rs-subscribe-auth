@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 pub struct AuthRequest {
     pub email: String,
     pub password: String,
+    #[serde(default)]
     pub verify_code: String,
 }
 

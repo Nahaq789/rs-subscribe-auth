@@ -43,8 +43,22 @@ fn secret_value(value: &mut Value) -> &mut Value {
         Value::Object(map) => {
             for (k, v) in map {
                 if k == "password" || k == "verify_code" {
+                    println!("k: {}", k);
+                    println!("v: {}", v);
+                    match v {
+                        Value::Array(arr) => {
+                            println!("hello");
+                            for (i, mut item) in arr.iter().enumerate() {
+                                item = &Value::String(mask.to_string());
+                            }
+                            println!("arr: {:?}", arr);
+                        }
+                        Value::Object(obj) => {}
+                        _ => ()
+                    }
                     *v = Value::String(mask.to_string());
                 } else {
+                    // println!("v: {}", v);
                     secret_value(v);
                 }
             }
@@ -57,4 +71,51 @@ fn secret_value(value: &mut Value) -> &mut Value {
         _ => {}
     };
     value
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_secret_value_has_secret() {
+        let mut value = json!({
+            "email": "hoge@email.com",
+            "password": "hogehoge",
+            "verify_code": "123456"
+        });
+        let result = secret_value(&mut value);
+
+        assert_eq!(result["email"], "hoge@email.com");
+        assert_eq!(result["password"], "*********");
+        assert_eq!(result["verify_code"], "*********")
+    }
+
+    #[test]
+    fn test_secret_value_has__nest_secret() {
+        let mut value = json!({
+            "user": {
+                "email": "hoge@email.com",
+                "password": "hogehoge",
+                "verify_code": "123456"
+            },
+            "secret": {
+                "password": [
+                    "hogehoge",
+                    "hogehoge",
+                    "hogehoge",
+                    "hogehoge",
+                    "hogehoge",
+                ]
+            }
+        });
+        println!("{}", value);
+        let result = secret_value(&mut value);
+        println!("{}", result)
+
+        // assert_eq!(result["email"], "hoge@email.com");
+        // assert_eq!(result["password"], "*********");
+        // assert_eq!(result["verify_code"], "*********")
+    }
 }
