@@ -13,18 +13,18 @@ pub async fn logging_middleware(req: Request<Body>, next: Next) -> impl IntoResp
     let (mut req_json, bytes) = process_response(body).await.unwrap_or_default();
 
     tracing::info!("Start request: {} {}", method, path);
-    tracing::info!("Send Request Body: {:?}", secret_value(&mut req_json));
+    tracing::info!("Send Request Body: {}", secret_value(&mut req_json));
 
     let req = Request::from_parts(parts, Body::from(bytes));
     let response = next.run(req).await;
 
     let (parts, body) = response.into_parts();
 
-    let (mut json, bytes) = process_response(body).await.unwrap_or_default();
+    let (mut res_json, bytes) = process_response(body).await.unwrap_or_default();
 
     match parts.status {
-        StatusCode::OK => tracing::info!("End request: {:?}", json),
-        _ => tracing::error!("End request: {:?}", secret_value(&mut json)),
+        StatusCode::OK => tracing::info!("End request: {:?}", res_json),
+        _ => tracing::error!("End request: {}", secret_value(&mut res_json)),
     }
 
     Response::from_parts(parts, Body::from(bytes))
@@ -37,6 +37,24 @@ async fn process_response(body: Body) -> Result<(Value, Bytes), Box<dyn std::err
     Ok((res_json, bytes))
 }
 
-fn secret_value(json: &mut Value) {
-    json["password"] = Value::String("*******".to_string())
+fn secret_value(value: &mut Value) -> &mut Value {
+    let mask = "*********";
+    match value {
+        Value::Object(map) => {
+            for (k, v) in map {
+                if k == "password" || k == "verify_code" {
+                    *v = Value::String(mask.to_string());
+                } else {
+                    secret_value(v);
+                }
+            }
+        }
+        Value::Array(vec) => {
+            for v in vec {
+                secret_value(v);
+            }
+        }
+        _ => {}
+    };
+    value
 }
