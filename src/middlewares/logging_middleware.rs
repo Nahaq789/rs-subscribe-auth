@@ -54,7 +54,7 @@ fn secret_value(value: &mut Value) -> &mut Value {
                             println!("arr: {:?}", arr);
                         }
                         Value::Object(obj) => {}
-                        _ => ()
+                        _ => (),
                     }
                     *v = Value::String(mask.to_string());
                 } else {
@@ -93,7 +93,7 @@ mod tests {
     }
 
     #[test]
-    fn test_secret_value_has__nest_secret() {
+    fn test_secret_value_has_nest_secret() {
         let mut value = json!({
             "user": {
                 "email": "hoge@email.com",
