@@ -43,22 +43,22 @@ fn secret_value(value: &mut Value) -> &mut Value {
         Value::Object(map) => {
             for (k, v) in map {
                 if k == "password" || k == "verify_code" {
-                    println!("k: {}", k);
-                    println!("v: {}", v);
                     match v {
                         Value::Array(arr) => {
-                            println!("hello");
-                            for (i, mut item) in arr.iter().enumerate() {
-                                item = &Value::String(mask.to_string());
+                            for item in arr.iter_mut() {
+                                *item = Value::String(mask.to_string())
                             }
-                            println!("arr: {:?}", arr);
                         }
-                        Value::Object(obj) => {}
-                        _ => (),
+                        Value::Object(obj) => {
+                            for (_, val) in obj.iter_mut() {
+                                *val = Value::String(mask.to_string())
+                            }
+                        }
+                        _ => {
+                            *v = Value::String(mask.to_string());
+                        }
                     }
-                    *v = Value::String(mask.to_string());
                 } else {
-                    // println!("v: {}", v);
                     secret_value(v);
                 }
             }
@@ -76,6 +76,7 @@ fn secret_value(value: &mut Value) -> &mut Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rstest::rstest;
     use serde_json::json;
 
     #[test]
@@ -92,30 +93,82 @@ mod tests {
         assert_eq!(result["verify_code"], "*********")
     }
 
+    #[rstest]
     #[test]
-    fn test_secret_value_has_nest_secret() {
-        let mut value = json!({
+    #[case::nested_object(
+        json!({
             "user": {
                 "email": "hoge@email.com",
                 "password": "hogehoge",
                 "verify_code": "123456"
-            },
-            "secret": {
-                "password": [
-                    "hogehoge",
-                    "hogehoge",
-                    "hogehoge",
-                    "hogehoge",
-                    "hogehoge",
-                ]
             }
-        });
-        println!("{}", value);
+        }),
+        json!({
+            "user": {
+                "email": "hoge@email.com",
+                "password": "*********",
+                "verify_code": "*********"
+            }
+        })
+    )]
+    #[case::nested_array(
+        json!({
+            "secret": {
+                "password": ["hogehoge", "hogehoge", "hogehoge"],
+                "verify_code": ["hogehoge", "hogehoge", "hogehoge"]
+            }
+        }),
+        json!({
+            "secret": {
+                "password": ["*********", "*********", "*********"],
+                "verify_code": ["*********", "*********", "*********"]
+            }
+        })
+    )]
+    #[case::object_array(
+        json!({
+            "password": ["1111", "2222", "3333"]
+        }),
+        json!({
+            "password": ["*********", "*********", "*********"]
+        })
+    )]
+    #[case::top_level_array(
+        json!([
+            {"password": "secret123"}
+        ]),
+        json!([
+            {"password": "*********"}
+        ])
+    )]
+    #[case::nested_top_level_array(
+        json!([
+            [{"password": "secret1"}, {"verify_code": "123456"}],
+            {"user": {"password": "userpass", "email": "user@example.com"}},
+            [
+                {"nested": {"password": "nestedpass"}},
+                [{"deep": {"verify_code": "deepcode"}}]
+            ],
+            "not_a_secret",
+            42,
+            [true, false, {"password": ["multi", "pass"]}]
+        ]),
+        json!([
+            [{"password": "*********"}, {"verify_code": "*********"}],
+            {"user": {"password": "*********", "email": "user@example.com"}},
+            [
+                {"nested": {"password": "*********"}},
+                [{"deep": {"verify_code": "*********"}}]
+            ],
+            "not_a_secret",
+            42,
+            [true, false, {"password": ["*********", "*********"]}]
+        ])
+    )]
+    fn test_secret_value(#[case] input: serde_json::Value, #[case] expected: serde_json::Value) {
+        let mut value = input;
         let result = secret_value(&mut value);
-        println!("{}", result)
 
-        // assert_eq!(result["email"], "hoge@email.com");
-        // assert_eq!(result["password"], "*********");
-        // assert_eq!(result["verify_code"], "*********")
+        assert_eq!(result, &expected);
     }
 }
