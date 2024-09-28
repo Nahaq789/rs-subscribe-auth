@@ -1,9 +1,8 @@
 use crate::domain::exception::auth_domain_exception::AuthDomainException;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
 
 /// Represents an authenticated user in the system.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone)]
 pub struct AuthUser {
     pub user_id: String,
     pub email: String,

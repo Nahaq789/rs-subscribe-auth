@@ -1,11 +1,5 @@
 use std::sync::Arc;
 
-use aws_sdk_cognitoidentityprovider::error::ProvideErrorMetadata;
-use aws_sdk_cognitoidentityprovider::{
-    error::SdkError, operation::sign_up::SignUpError, types::AttributeType,
-};
-use axum::async_trait;
-
 use crate::{
     adapter::aws::{client::cognito_client::CognitoClient, provider::AwsProvider},
     domain::{
@@ -14,6 +8,12 @@ use crate::{
     },
     exception::auth_exception::AuthException,
 };
+use aws_sdk_cognitoidentityprovider::error::ProvideErrorMetadata;
+use aws_sdk_cognitoidentityprovider::{
+    error::SdkError, operation::sign_up::SignUpError, types::AttributeType,
+};
+use axum::async_trait;
+use tracing::error;
 
 /// Implements the CognitoRepository trait using AWS SDK for Cognito.
 ///
@@ -93,19 +93,19 @@ impl CognitoRepository for CognitoRepositoryImpl {
             .send()
             .await
             .map_err(|e| {
-                log::error!("Authentication failed: {:?}", e);
+                error!("Authentication failed: {:?}", e);
                 AuthException::AuthenticationFailed(e.message().unwrap_or_default().to_string())
             })?;
 
         let authenticate_result = authentication.authentication_result().ok_or_else(|| {
-            log::error!("No authentication result in response");
+            error!("No authentication result in response");
             AuthException::AuthenticationFailed("No authentication result in response".to_string())
         })?;
 
         let jwt = authenticate_result
             .access_token()
             .ok_or_else(|| {
-                log::error!("Access token missing from authentication result");
+                error!("Access token missing from authentication result");
                 AuthException::TokenMissing
             })?
             .to_string();
@@ -113,7 +113,7 @@ impl CognitoRepository for CognitoRepositoryImpl {
         let refresh = authenticate_result
             .refresh_token()
             .ok_or_else(|| {
-                log::error!("Refresh token missing from authentication result");
+                error!("Refresh token missing from authentication result");
                 AuthException::TokenMissing
             })?
             .to_string();
@@ -158,7 +158,7 @@ impl CognitoRepository for CognitoRepositoryImpl {
             .value(&auth.email)
             .build()
             .map_err(|e| {
-                log::error!("Failed to build email attribute: {:?}", e);
+                error!("Failed to build email attribute: {:?}", e);
                 AuthException::InternalServerError(format!(
                     "Failed to build email attribute: {:?}",
                     e
@@ -179,7 +179,7 @@ impl CognitoRepository for CognitoRepositoryImpl {
             .send()
             .await
             .map_err(|e| {
-                log::error!("Signup error: {:?}", e);
+                error!("Signup error: {:?}", e);
                 match e {
                     SdkError::ServiceError(service_error) => match service_error.err() {
                         SignUpError::UsernameExistsException(_) => AuthException::UserAlreadyExists,
@@ -235,7 +235,7 @@ impl CognitoRepository for CognitoRepositoryImpl {
             .send()
             .await
             .map_err(|e| {
-                log::error!("Verify Confirm error: {:?}", e);
+                error!("Verify Confirm error: {:?}", e);
                 AuthException::AuthenticationFailed(e.to_string())
             })?;
 

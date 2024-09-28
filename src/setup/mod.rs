@@ -1,10 +1,11 @@
+use crate::middlewares::logging_middleware::logging_middleware;
 use crate::modules::module::AppState;
 use crate::presentation::controller::auth_controller::confirm_code;
 use crate::presentation::controller::auth_controller::signin;
 use crate::presentation::controller::auth_controller::signup;
 use axum::routing::post;
-use axum::Extension;
 use axum::Router;
+use axum::{middleware, Extension};
 
 /// Creates and configures the main application, setting up routes, services, and the HTTP server.
 ///
@@ -69,6 +70,7 @@ async fn create_router(app_state: AppState) -> Router {
         .route("/api/v1/auth/signin", post(signin))
         .route("/api/v1/auth/signup", post(signup))
         .route("/api/v1/auth/confirm", post(confirm_code))
+        .layer(middleware::from_fn(logging_middleware))
         .layer(Extension(app_state.auth_service))
 }
 
