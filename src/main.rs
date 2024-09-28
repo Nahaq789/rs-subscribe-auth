@@ -42,7 +42,10 @@ use tracing::{event, Level};
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // init tracing_subscriber
-    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+    tracing_subscriber::fmt()
+        .with_max_level(Level::DEBUG)
+        .with_ansi(false)
+        .init();
 
     // Log the application start
     event!(Level::INFO, "Application Started");
