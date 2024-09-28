@@ -8,6 +8,7 @@ axum = "0.7.5"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0.108"
+tracing = "0.1.40"
 tracing-subscriber = "0.3.18"
 dotenv = "0.15"
 async-trait = "0.1.58"
@@ -26,10 +27,15 @@ hmac = "0.12.1"
 sha2 = "0.10.6"
 base64 = "0.22.1"
 mockall = "0.13.0"
+regex = "1.10.6"
 
 [dev-dependencies]
 tower = "0.4.13"
 http-body-util = "0.1.0"
+rstest = "0.22.0"
+axum-test = "15.7.1"
+hyper = "0.14.30"
+testing_logger = "0.1.1"
 
 [target.x86_64-unknown-linux-gnu]
 linker = "x86_64-unknown-linux-gnu-gcc"
@@ -46,3 +52,10 @@ lto = true          # Enable Link Time Optimization
 codegen-units = 1   # Reduce number of codegen units to increase optimizations
 panic = 'abort'     # Abort on panic
 strip = true        # Strip symbols from binary
+
+[profile.dev.package."*"]
+opt-level = 3
+
+[features]
+default = ["coverage"]
+coverage = []

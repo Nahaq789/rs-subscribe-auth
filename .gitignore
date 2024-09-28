@@ -33,5 +33,6 @@ lambda.zip
 # SQLx specific (if you're using SQLx)
 .sqlx/
 
-rs-subscribe-auth.zip
+rust-lambda.zip
 build.sh
+push.sh

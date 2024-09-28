@@ -1,5 +1,5 @@
 use rs_subscribe_auth::setup::create_app;
-use std::env;
+use tracing::{event, Level};
 
 /// The main entry point for the rs_subscribe_auth application.
 ///
@@ -41,14 +41,14 @@ use std::env;
 /// if something goes wrong during the setup process.
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // Set the log level to debug
-    env::set_var("RUST_LOG", "debug");
-
-    // Initialize the logger
-    env_logger::init();
+    // init tracing_subscriber
+    tracing_subscriber::fmt()
+        .with_max_level(Level::DEBUG)
+        .with_ansi(false)
+        .init();
 
     // Log the application start
-    log::info!("Application Started");
+    event!(Level::INFO, "Application Started");
 
     // Create and initialize the application
     let _ = create_app().await;
