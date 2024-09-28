@@ -76,8 +76,14 @@ fn secret_value(value: &mut Value) -> &mut Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use axum::body::Body;
+    use axum::routing::post;
+    use axum::{middleware, Json, Router};
+    use log::Level;
     use rstest::rstest;
+    use serde::{Deserialize, Serialize};
     use serde_json::json;
+    use tower::ServiceExt;
 
     #[test]
     fn test_secret_value_has_secret() {
@@ -170,5 +176,82 @@ mod tests {
         let result = secret_value(&mut value);
 
         assert_eq!(result, &expected);
+    }
+
+    #[tokio::test]
+    async fn test_process_response_success() {
+        let json = json!({"fuga": "hoge"});
+        let response_body = Body::from(json.to_string());
+        let (parts, raw) = process_response(response_body).await.unwrap_or_default();
+
+        assert_eq!(parts, json);
+        assert_eq!(raw, Bytes::from(json.to_string()))
+    }
+
+    #[tokio::test]
+    async fn test_process_response_failed() {
+        let json = "{ invalid json }";
+        let response_body = Body::from(json);
+        let result = process_response(response_body).await;
+
+        assert!(result.is_err())
+    }
+
+    #[tokio::test]
+    async fn test_process_response_empty() {
+        let response_body = Body::empty();
+        let result = process_response(response_body).await;
+
+        assert!(result.is_err())
+    }
+
+    #[tokio::test]
+    async fn test_logging_middleware_success() {
+        testing_logger::setup();
+        let json = json!({
+            "message": "fugafuga"
+        });
+        let json_body = serde_json::to_string(&json).unwrap();
+        let request = Request::builder()
+            .method("POST")
+            .uri("/")
+            .header("Content-Type", "application/json")
+            .body(Body::new(json_body))
+            .unwrap();
+        let router = create_router().await;
+        let response = router.oneshot(request).await.unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+
+        testing_logger::validate(|captured_logs| {
+            assert_eq!(captured_logs.len(), 3);
+            for i in 0..captured_logs.len() {
+                assert_eq!(captured_logs[i].level, Level::Info);
+            }
+            assert_eq!(captured_logs[0].body, "Start request: POST /");
+            assert_eq!(
+                captured_logs[1].body,
+                "Send Request Body: {\"message\":\"fugafuga\"}"
+            );
+            assert_eq!(
+                captured_logs[2].body,
+                "End request: {\"message\":\"fugafugahogehoge\"}"
+            );
+        });
+    }
+
+    async fn create_router() -> Router {
+        Router::new()
+            .route("/", post(test_hogehoge_endpoint))
+            .layer(middleware::from_fn(logging_middleware))
+    }
+    #[derive(Deserialize, Serialize)]
+    struct TestDto {
+        message: String,
+    }
+    async fn test_hogehoge_endpoint(Json(payload): Json<TestDto>) -> impl IntoResponse {
+        let value = json!({
+            "message": payload.message + "hogehoge"
+        });
+        Json(value)
     }
 }
